@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>blendit — app design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{
+  --navy:#12385F;
+  --navy-d:#0C2842;
+  --blue:#3B6FE0;
+  --blue-soft:#EAF0FC;
+  --chip:#A6B6C6;
+  --fill:#F1F3F5;
+  --line:#E4E7EB;
+  --line-2:#EDEFF2;
+  --text:#16202B;
+  --muted:#6E7B89;
+  --muted-2:#93A0AD;
+  --white:#fff;
+  --ui:'Inter',system-ui,-apple-system,sans-serif;
+  --serif:'Instrument Serif',Georgia,serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#EEF0F3;font-family:var(--ui);color:var(--text);-webkit-font-smoothing:antialiased;padding:54px 24px 90px}
+
+.masthead{max-width:1360px;margin:0 auto 50px}
+.masthead .eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--blue);margin-bottom:12px}
+.masthead h1{font-family:var(--serif);font-size:clamp(36px,5vw,60px);line-height:1.02;letter-spacing:-.01em;max-width:17ch;color:var(--navy)}
+.masthead p{margin-top:16px;max-width:64ch;font-size:15.5px;line-height:1.65;color:var(--muted)}
+.swatches{display:flex;gap:8px;margin-top:24px;flex-wrap:wrap}
+.sw{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 12px 6px 6px;font-size:11.5px;font-weight:500;color:var(--muted)}
+.sw i{width:18px;height:18px;border-radius:4px;display:block}
+
+.grid{max-width:1360px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(390px,1fr));gap:58px 40px;justify-items:center}
+.slot{width:390px}
+.slot .cap{margin-bottom:14px}
+.slot .num{font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--blue);display:block;margin-bottom:4px}
+.slot .ttl{font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--navy)}
+.slot .sub{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.5}
+
+/* phone */
+.phone{width:390px;height:844px;border-radius:42px;background:#1A1D21;padding:4px;box-shadow:0 18px 40px -26px rgba(18,56,95,.5)}
+.screen{width:100%;height:100%;border-radius:38px;background:var(--white);overflow:hidden;position:relative;display:flex;flex-direction:column}
+
+.status{height:50px;flex:0 0 50px;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font-size:14.5px;font-weight:600;position:relative;z-index:6}
+.status .r{display:flex;align-items:center;gap:6px}
+.notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:106px;height:29px;border-radius:999px;background:#1A1D21;z-index:5}
+
+/* header */
+.hdr{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:2px 18px 16px}
+.mark{font-family:var(--serif);font-size:29px;line-height:1;color:var(--navy);letter-spacing:.005em}
+.hdr .acts{display:flex;align-items:center;gap:10px;color:var(--navy)}
+.ib{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;color:var(--navy);flex:0 0 38px}
+.hpfp{width:38px;height:38px;border-radius:50%;background:#4E708F;display:block;flex:0 0 38px}
+.back{width:32px;height:32px;display:grid;place-items:center;color:var(--navy);margin-left:-6px}
+
+
+/* chips */
+.chips{display:flex;gap:8px;padding:0 18px;overflow:hidden;margin-bottom:16px}
+.chip{flex:0 0 auto;border-radius:999px;padding:9px 15px;font-size:13.5px;font-weight:600;background:var(--chip);color:#fff;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.on{background:var(--navy)}
+.chip.out{background:#fff;border:1px solid var(--line);color:var(--muted)}
+
+.body{flex:1;overflow:hidden;padding-bottom:112px}
+.sec{padding:0 18px;margin-bottom:20px}
+.label{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text);margin-bottom:11px}
+.label.mut{color:var(--muted)}
+h2.t{font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:12px}
+h3.t{font-size:15px;font-weight:700;margin-bottom:10px}
+.rowhead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:11px}
+.rowhead .see{font-size:13.5px;font-weight:600;color:var(--blue)}
+
+/* flat photo blocks */
+.f1{background:#C6D4E6}.f2{background:#A9BFDA}.f3{background:#8CA8CB}
+.f4{background:#DAE2ED}.f5{background:#6F8FBC}.f6{background:#B8C9DF}
+.fx{position:relative;display:grid;place-items:center;color:rgba(255,255,255,.75)}
+
+/* segmented */
+.seg{display:flex;border-bottom:1px solid var(--line);margin:0 18px 16px}
+.seg button{flex:1;border:0;background:none;font-family:var(--ui);font-size:14.5px;font-weight:600;color:var(--muted-2);padding:0 0 11px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.seg button.on{color:var(--navy);border-bottom-color:var(--navy)}
+
+/* card + rows */
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:15px;margin-bottom:12px}
+.trip{display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line-2)}
+.trip:last-child{border-bottom:0}
+.trip .th{flex:0 0 54px;height:54px;border-radius:8px}
+.trip .in{flex:1;min-width:0}
+.trip .nm{font-size:15.5px;font-weight:700;letter-spacing:-.01em}
+.trip .mt{font-size:12.5px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:6px}
+.dot{width:3px;height:3px;border-radius:50%;background:var(--muted-2);flex:0 0 3px}
+.faces{display:flex}
+.faces i{width:22px;height:22px;border-radius:50%;border:2px solid #fff;margin-left:-7px;display:block}
+.chev{color:var(--muted-2);margin-left:2px}
+
+/* featured horizontal */
+.rail{display:flex;gap:11px;padding:0 18px;overflow:hidden;margin-bottom:22px}
+.fc{flex:0 0 210px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.fc .img{height:118px}
+.fc .bd{padding:11px 12px 13px}
+.fc .nm{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.fc .mt{font-size:12px;color:var(--muted);margin-top:4px}
+.fc .bar{display:flex;gap:2px;margin-top:9px}
+.fc .bar i{height:4px;flex:1;border-radius:1px;background:var(--line);display:block}
+.fc .bar i.on{background:var(--blue)}
+
+/* invite / unlock card (beli pattern) */
+.unlock h4{font-size:17.5px;font-weight:700;color:var(--navy);letter-spacing:-.01em}
+.unlock .sub{font-size:14px;color:var(--muted-2);margin-top:3px}
+.unlock .icons{display:flex;gap:9px;margin:14px 0 14px;overflow:hidden}
+.unlock .ic{flex:0 0 68px;text-align:center}
+.unlock .ic .bx{height:66px;border:1px solid var(--line);border-radius:9px;display:grid;place-items:center;color:var(--navy);margin-bottom:7px}
+.unlock .ic span{font-size:11.5px;font-weight:600;line-height:1.25;display:block;color:var(--text)}
+.btn{background:var(--navy);color:#fff;border-radius:9px;padding:14px;text-align:center;font-size:15px;font-weight:700}
+.btn.sec{background:#fff;border:1px solid var(--line);color:var(--navy)}
+.btn.blue{background:var(--blue)}
+
+/* blend card */
+.bl{border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:12px;background:#fff}
+.bl .top{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+.bl .top i{width:24px;height:24px;border-radius:50%;display:block}
+.bl .top b{font-size:13.5px;font-weight:700}
+.bl .top em{font-style:normal;font-size:12px;color:var(--muted-2)}
+.bl .top .src{margin-left:auto;font-size:11px;font-weight:600;color:var(--muted);border:1px solid var(--line);padding:3px 7px;border-radius:5px}
+.bl .strip{display:flex;gap:11px}
+.bl .clip{flex:0 0 70px;height:93px;border-radius:8px;position:relative;display:grid;place-items:center}
+.bl .clip .pl{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.92);display:grid;place-items:center;color:var(--navy)}
+.bl .tx{flex:1;min-width:0}
+.bl .tx h4{font-size:14.5px;font-weight:700;line-height:1.25;letter-spacing:-.01em}
+.bl .tx p{font-size:12.5px;line-height:1.5;color:var(--muted);margin-top:5px}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.tag{font-size:11px;font-weight:600;color:var(--navy);border:1px solid var(--line);padding:3px 7px;border-radius:5px;display:flex;align-items:center;gap:4px}
+
+/* consensus meter */
+.meter{margin-top:12px;padding-top:11px;border-top:1px solid var(--line-2);display:flex;align-items:center;gap:10px}
+.bars{display:flex;gap:3px;flex:1}
+.bars i{height:5px;flex:1;border-radius:1px;background:var(--line);display:block}
+.bars i.up{background:var(--blue)}
+.bars i.no{background:var(--line);box-shadow:inset 0 0 0 1px var(--chip)}
+.tally{font-size:12px;font-weight:700;color:var(--navy);white-space:nowrap}
+.votes{display:flex;gap:6px}
+.vb{width:34px;height:30px;border-radius:7px;display:grid;place-items:center;border:1px solid var(--line);background:#fff;color:var(--muted)}
+.vb.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.vb.off{background:var(--fill);border-color:var(--line);color:var(--text)}
+
+/* itinerary */
+.day{margin-bottom:20px}
+.dayh{display:flex;align-items:center;gap:9px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.dayh b{font-size:14.5px;font-weight:700}
+.dayh em{font-style:normal;font-size:12.5px;color:var(--muted);margin-left:auto}
+.stop{display:flex;gap:11px;margin-bottom:8px}
+.sl{flex:0 0 42px;padding-top:12px}
+.sl .tm{font-size:12px;font-weight:700;color:var(--muted)}
+.sc{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 11px;display:flex;gap:10px;align-items:center;background:#fff}
+.sc .sq{flex:0 0 40px;height:40px;border-radius:7px}
+.sc h5{font-size:13.5px;font-weight:700;letter-spacing:-.005em}
+.sc p{font-size:11.5px;color:var(--muted);margin-top:2px}
+.sc .ag{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--navy);background:var(--fill);padding:4px 7px;border-radius:5px;white-space:nowrap}
+
+/* form */
+.fld{margin-bottom:14px}
+.fld label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.inp{background:#fff;border:1px solid var(--line);border-radius:9px;padding:13px 13px;font-size:15px;font-weight:500;display:flex;align-items:center;gap:9px}
+.inp.g{color:var(--muted-2);font-weight:400}
+.inp textarea{border:0;outline:0;font-family:var(--ui);font-size:14px;width:100%;resize:none;color:var(--text);line-height:1.5}
+.pair{display:flex;gap:10px}.pair .fld{flex:1}
+.stp{display:flex;align-items:center;justify-content:space-between}
+.stp .n{font-size:17px;font-weight:700}
+.stp .pm{display:flex;gap:6px}
+.stp .pm i{width:28px;height:28px;border-radius:6px;background:var(--fill);display:grid;place-items:center;color:var(--navy);font-style:normal;font-weight:700;font-size:15px}
+
+/* tab bar — beli style */
+.nav{position:absolute;left:0;right:0;bottom:0;height:104px;z-index:9;background:transparent;pointer-events:none}
+.nav .cluster{position:absolute;bottom:26px;left:18px;display:flex;gap:10px}
+.nav .pill{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:#fff;border:1px solid var(--line);color:var(--navy);box-shadow:0 4px 14px -5px rgba(18,56,95,.22)}
+.nav .pill.on{background:var(--navy);color:#fff;box-shadow:0 4px 14px -5px rgba(18,56,95,.45)}
+.nav .fab{position:absolute;bottom:26px;right:18px;width:62px;height:62px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;box-shadow:0 6px 18px -6px rgba(18,56,95,.45)}
+
+/* modal */
+.scrim{position:absolute;inset:0;background:rgba(12,40,66,.36);z-index:10}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:11;background:#fff;border-radius:16px 16px 38px 38px;padding:10px 18px 26px;border-top:1px solid var(--line)}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 16px}
+.sheet h3{font-size:19px;font-weight:700;color:var(--navy);margin-bottom:3px}
+.sheet .lede{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-height:1.5}
+.pick{border:1px solid var(--line);border-radius:11px;padding:14px;display:flex;gap:12px;align-items:center;margin-bottom:10px}
+.pick.on{border-color:var(--navy);border-width:1.5px}
+.pick .ic{flex:0 0 42px;height:42px;border-radius:9px;background:var(--fill);color:var(--navy);display:grid;place-items:center}
+.pick.on .ic{background:var(--navy);color:#fff}
+.pick h4{font-size:15px;font-weight:700}
+.pick p{font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.45}
+
+/* detail */
+.hero{height:250px;position:relative}
+.hero .bk{position:absolute;top:12px;left:14px;z-index:3;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.94);display:grid;place-items:center;color:var(--navy)}
+.hero .pl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.94);display:grid;place-items:center;color:var(--navy)}
+.hero .cr{position:absolute;left:14px;bottom:13px;z-index:3;display:flex;align-items:center;gap:9px;color:#fff}
+.hero .cr i{width:28px;height:28px;border-radius:50%;border:1.5px solid #fff;display:block}
+.hero .cr b{font-size:13.5px;font-weight:700}
+.hero .cr em{font-style:normal;font-size:11.5px;opacity:.88;display:block;margin-top:1px}
+.sum{border:1px solid var(--line);border-radius:11px;padding:13px;margin-bottom:16px}
+.sum .h{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.sum p{font-size:13.5px;line-height:1.55}
+.plc{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:9px}
+.plc .sq{flex:0 0 38px;height:38px;border-radius:7px}
+.plc h5{font-size:13.5px;font-weight:700}
+.plc p{font-size:11.5px;color:var(--muted);margin-top:2px}
+.plc .y{margin-left:auto;width:29px;height:29px;border-radius:7px;background:var(--navy);color:#fff;display:grid;place-items:center}
+.plc .n{width:29px;height:29px;border-radius:7px;background:#fff;border:1px solid var(--line);color:var(--muted);display:grid;place-items:center;margin-left:6px}
+
+/* map */
+.mp{position:absolute;inset:0;z-index:0;background:#F2F4F6}
+.mp .leaf{width:100%;height:100%}
+.leaflet-container{background:#F2F4F6;font-family:var(--ui)}
+.leaflet-control-attribution{font-size:8px!important;background:rgba(255,255,255,.72)!important;padding:1px 5px!important;color:var(--muted-2)!important}
+.leaflet-control-attribution a{color:var(--muted)!important}
+.leaflet-bottom.leaflet-right{bottom:92px}
+.pin-n{width:32px;height:32px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700;box-shadow:0 2px 8px -2px rgba(18,56,95,.55)}
+.pin-n.out{background:#fff;color:var(--navy);border:2.5px solid var(--navy)}
+.pin-d{width:24px;height:24px;border-radius:50%;background:var(--navy);border:4px solid #fff;box-shadow:0 2px 8px -2px rgba(18,56,95,.45)}
+.pin-d.sm{width:15px;height:15px;background:var(--chip);border-width:3px}
+.leaflet-popup-content-wrapper{border-radius:10px;box-shadow:0 6px 20px -8px rgba(18,56,95,.4)}
+.leaflet-popup-content{margin:9px 12px;font-size:12.5px;font-weight:600;color:var(--text)}
+.leaflet-popup-content b{display:block;font-size:13.5px;color:var(--navy);margin-bottom:2px}
+.leaflet-popup-content em{font-style:normal;font-weight:500;color:var(--muted);font-size:11.5px}
+.mcard{position:absolute;left:14px;right:14px;bottom:116px;z-index:6;background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px}
+.mcard .k{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.mcard h4{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.mcard .st{display:flex;gap:22px;margin-top:10px}
+.mcard .st .v{font-size:17px;font-weight:700}
+.mcard .st .l{font-size:11px;color:var(--muted);margin-top:1px}
+
+/* profile */
+.pro{padding:4px 18px 0;text-align:center}
+.pro .big{width:82px;height:82px;border-radius:50%;margin:0 auto 12px;background:#A9BFDA;border:1px solid var(--line)}
+.pro h2{font-size:21px;font-weight:700;letter-spacing:-.015em}
+.pro .at{font-size:13.5px;color:var(--muted);margin-top:2px}
+.ps{display:flex;justify-content:center;gap:30px;margin:18px 0 20px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.ps .v{font-size:19px;font-weight:700}
+.ps .l{font-size:11.5px;color:var(--muted);margin-top:2px}
+.tl{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line-2);text-align:left}
+.tl .ic{flex:0 0 20px;color:var(--navy)}
+.tl h5{font-size:14.5px;font-weight:600}
+.tl p{font-size:12px;color:var(--muted);margin-top:2px}
+.tl .cv{margin-left:auto;color:var(--muted-2)}
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="eyebrow">Product design · 10 screens · revision 5</div>
+  <h1>Turn the group chat into a plan everyone agreed to.</h1>
+  <p>Rebuilt flat. No gradients, no glows, no colored shadows — surfaces are white, separation comes from hairline rules, and the only saturated colour in the interface is on things you can act on. Navy carries hierarchy, blue means "the group wants this." The consensus meter is still the signature: one segment per person, so agreement is something you read rather than argue about.</p>
+  <div class="swatches">
+    <span class="sw"><i style="background:#12385F"></i>#12385F navy</span>
+    <span class="sw"><i style="background:#3B6FE0"></i>#3B6FE0 blue</span>
+    <span class="sw"><i style="background:#A6B6C6"></i>#A6B6C6 chip</span>
+    <span class="sw"><i style="background:#F1F3F5"></i>#F1F3F5 fill</span>
+    <span class="sw"><i style="background:#E4E7EB"></i>#E4E7EB rule</span>
+    <span class="sw"><i style="background:#fff;border:1px solid #E4E7EB"></i>#FFFFFF surface</span>
+  </div>
+</div>
+
+<div class="grid">
+
+<!-- 01 -->
+<div class="slot">
+  <div class="cap"><span class="num">01</span><div class="ttl">Trips — home</div><div class="sub">Opens into what you're part of. Search, filters, then your trips — nothing decorative above the fold.</div></div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="status"><span>12:40</span><div class="r">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7.5" width="3" height="3.5" rx=".8"/><rect x="4.5" y="5" width="3" height="6" rx=".8"/><rect x="9" y="2.5" width="3" height="8.5" rx=".8"/><rect x="13.5" width="3" height="11" rx=".8"/></svg>
+      <svg width="15" height="11" viewBox="0 0 15 11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 3.6a9.4 9.4 0 0 1 13 0M3.4 6.3a5.9 5.9 0 0 1 8.2 0"/><circle cx="7.5" cy="9.2" r="1" fill="currentColor" stroke="none"/></svg>
+      <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x=".6" y=".6" width="20" height="9.8" rx="2.8" stroke="currentColor" stroke-opacity=".35"/><rect x="2.2" y="2.2" width="10" height="6.6" rx="1.6" fill="currentColor"/><path d="M22.3 3.8v3.4a1.8 1.8 0 0 0 0-3.4z" fill="currentColor" fill-opacity=".4"/></svg>
+    </div></div>
+
+    <div class="hdr">
+      <div class="mark">blendit</div>
+      <div class="acts">
+        <div class="ib"><svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="7.3" cy="7.3" r="5.3"/><path d="M11.2 11.2 15.3 15.3"/></svg></div>
+        <span class="hpfp"></span>
+      </div>
+    </div>
+    <div class="chips">
+      <span class="chip on">All trips</span>
+      <span class="chip">Planning</span>
+      <span class="chip">Archived</span>
+      <span class="chip">Invites</span>
+    </div>
+
+    <div class="body">
+      <div class="sec">
+        <div class="card unlock" style="padding:15px">
+          <h4>3 clips waiting on your vote</h4>
+          <div class="sub">Tokyo is 4 days from locking the plan</div>
+          <div class="icons">
+            <div class="ic"><div class="bx f4"></div><span>Golden<br>Gai</span></div>
+            <div class="ic"><div class="bx f2"></div><span>teamLab</span></div>
+            <div class="ic"><div class="bx f6"></div><span>Tsukiji</span></div>
+            <div class="ic"><div class="bx" style="background:var(--fill);color:var(--muted)"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 4v10M4 9h10"/></svg></div><span>See all</span></div>
+          </div>
+          <div class="btn">Open Tokyo blend</div>
+        </div>
+      </div>
+
+      <div class="sec" style="margin-bottom:14px">
+        <div class="rowhead"><div class="label" style="margin:0">Planning now</div><span class="see">See all</span></div>
+      </div>
+      <div class="rail">
+        <div class="fc">
+          <div class="img f3"></div>
+          <div class="bd">
+            <div class="nm">Tokyo</div>
+            <div class="mt">Mar 12–19 · 6 going</div>
+            <div class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div>
+          </div>
+        </div>
+        <div class="fc">
+          <div class="img f2"></div>
+          <div class="bd">
+            <div class="nm">Lisbon</div>
+            <div class="mt">May 2–9 · 9 going</div>
+            <div class="bar"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="label mut">All trips</div>
+        <div class="trip">
+          <div class="th f3"></div>
+          <div class="in"><div class="nm">Tokyo</div><div class="mt">Mar 12–19<span class="dot"></span>7 nights<span class="dot"></span>34 clips</div></div>
+          <div class="faces"><i class="f2"></i><i class="f5"></i><i class="f6"></i></div>
+          <span class="chev"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 3 10 7.5 5.6 12"/></svg></span>
+        </div>
+        <div class="trip">
+          <div class="th f2"></div>
+          <div class="in"><div class="nm">Lisbon</div><div class="mt">May 2–9<span class="dot"></span>7 nights<span class="dot"></span>12 clips</div></div>
+          <div class="faces"><i class="f5"></i><i class="f4"></i><i class="f3"></i></div>
+          <span class="chev"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 3 10 7.5 5.6 12"/></svg></span>
+        </div>
+        <div class="trip">
+          <div class="th f6" style="opacity:.6"></div>
+          <div class="in"><div class="nm" style="color:var(--muted)">Cabo</div><div class="mt">Jan 4–8<span class="dot"></span>Wrapped</div></div>
+          <div class="faces"><i class="f4"></i><i class="f6"></i></div>
+          <span class="chev"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 3 10 7.5 5.6 12"/></svg></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <div class="cluster">
+        <div class="pill on"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.6" y="6" width="16.8" height="12.6" rx="2.6"/><path d="M7.6 6V4.6A1.8 1.8 0 0 1 9.4 2.8h3.2a1.8 1.8 0 0 1 1.8 1.8V6"/></svg></div>
+        <div class="pill"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M2.6 5.6 8 3.4v13l-5.4 2.2z"/><path d="M8 3.4 14 5.6v13L8 16.4z"/><path d="M14 5.6 19.4 3.4v13l-5.4 2.2z"/></svg></div>
+      </div>
+      <div class="fab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 4.6v14.8M4.6 12h14.8"/></svg></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- 02 -->
+<div class="slot">
+  <div class="cap"><span class="num">02</span><div class="ttl">Create</div><div class="sub">Two things you can make. The copy says what each is for so nobody has to guess.</div></div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="status"><span>12:40</span><div class="r">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7.5" width="3" height="3.5" rx=".8"/><rect x="4.5" y="5" width="3" height="6" rx=".8"/><rect x="9" y="2.5" width="3" height="8.5" rx=".8"/><rect x="13.5" width="3" height="11" rx=".8"/></svg>
+      <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x=".6" y=".6" width="20" height="9.8" rx="2.8" stroke="currentColor" stroke-opacity=".35"/><rect x="2.2" y="2.2" width="10" height="6.6" rx="1.6" fill="currentColor"/></svg>
+    </div></div>
+
+    <div class="hdr">
+      <div class="mark">blendit</div>
+      <div class="acts">
+        <div class="ib"><svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="7.3" cy="7.3" r="5.3"/><path d="M11.2 11.2 15.3 15.3"/></svg></div>
+        <span class="hpfp"></span>
+      </div>
+    </div>
+    <div class="chips"><span class="chip on">All trips</span><span class="chip">Planning</span><span class="chip">Archived</span></div>
+    <div class="body">
+      <div class="sec">
+        <div class="label mut">All trips</div>
+        <div class="trip"><div class="th f3"></div><div class="in"><div class="nm">Tokyo</div><div class="mt">Mar 12–19<span class="dot"></span>34 clips</div></div></div>
+        <div class="trip"><div class="th f2"></div><div class="in"><div class="nm">Lisbon</div><div class="mt">May 2–9<span class="dot"></span>12 clips</div></div></div>
+      </div>
+    </div>
+
+    <div class="scrim"></div>
+    <div class="sheet">
+      <div class="grab"></div>
+      <h3>Start something</h3>
+      <p class="lede">A trip is a plan you build with other people. A post is the story after you get back.</p>
+      <div class="pick on">
+        <div class="ic"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17.6s5.6-4.5 5.6-8.4a5.6 5.6 0 0 0-11.2 0c0 3.9 5.6 8.4 5.6 8.4z"/><circle cx="10" cy="8.8" r="2"/></svg></div>
+        <div><h4>New trip</h4><p>Pick a place and dates, then invite the group.</p></div>
+      </div>
+      <div class="pick">
+        <div class="ic"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2.5" width="14" height="15" rx="2.4"/><path d="M6.4 6.8h7.2M6.4 10h7.2M6.4 13.2h4.4"/></svg></div>
+        <div><h4>Write a post</h4><p>Share how a trip went, for people planning theirs.</p></div>
+      </div>
+      <div class="btn sec" style="margin-top:4px">Cancel</div>
+    </div>
+  </div></div>
+</div>
+
+<!-- 03 -->
+<div class="slot">
+  <div class="cap"><span class="num">03</span><div class="ttl">New trip — the basics</div><div class="sub">Four inputs, none optional. Fewer decisions here means more get made by the group later.</div></div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="status"><span>12:40</span><div class="r">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7.5" width="3" height="3.5" rx=".8"/><rect x="4.5" y="5" width="3" height="6" rx=".8"/><rect x="9" y="2.5" width="3" height="8.5" rx=".8"/><rect x="13.5" width="3" height="11" rx=".8"/></svg>
+      <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x=".6" y=".6" width="20" height="9.8" rx="2.8" stroke="currentColor" stroke-opacity=".35"/><rect x="2.2" y="2.2" width="10" height="6.6" rx="1.6" fill="currentColor"/></svg>
+    </div></div>
+
+    <div class="hdr">
+      <div class="back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 4 6.4 10l6 6"/></svg></div>
+      <div style="font-size:15.5px;font-weight:700">New trip</div>
+      <div style="font-size:13.5px;font-weight:600;color:var(--muted-2)">1 of 2</div>
+    </div>
+
+    <div class="body" style="padding-bottom:110px">
+      <div class="sec" style="padding-top:6px">
+        <div class="fld">
+          <label>Where are you going</label>
+          <div class="inp"><svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="#12385F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 15s4.7-3.8 4.7-7.1a4.7 4.7 0 0 0-9.4 0C3.8 11.2 8.5 15 8.5 15z"/><circle cx="8.5" cy="7.5" r="1.7"/></svg>Tokyo, Japan</div>
+        </div>
+        <div class="pair">
+          <div class="fld"><label>Leaving</label><div class="inp">Mar 12</div></div>
+          <div class="fld"><label>Coming back</label><div class="inp">Mar 19</div></div>
+        </div>
+        <div class="fld"><label>Nights</label><div class="inp stp"><span class="n">7</span><span class="pm"><i>−</i><i>+</i></span></div></div>
+        <div class="fld"><label>How many of you</label><div class="inp stp"><span class="n">6</span><span class="pm"><i>−</i><i>+</i></span></div></div>
+        <div class="fld">
+          <label>What's the trip for</label>
+          <div class="inp" style="align-items:flex-start;min-height:84px"><textarea rows="3">Senior spring trip. Food first, one big temple day, nobody wants a 6am wake up.</textarea></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="position:absolute;left:0;right:0;bottom:0;padding:14px 18px 26px;background:#fff;border-top:1px solid var(--line);z-index:8">
+      <div class="btn">Next — invite the group</div>
+    </div>
+  </div></div>
+</div>
+
+<!-- 04 -->
+<div class="slot">
+  <div class="cap"><span class="num">04</span><div class="ttl">New trip — invite</div><div class="sub">Link first, contacts second. Nobody should need the app installed to say yes.</div></div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="status"><span>12:40</span><div class="r">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7.5" width="3" height="3.5" rx=".8"/><rect x="4.5" y="5" width="3" height="6" rx=".8"/><rect x="9" y="2.5" width="3" height="8.5" rx=".8"/><rect x="13.5" width="3" height="11" rx=".8"/></svg>
+      <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x=".6" y=".6" width="20" height="9.8" rx="2.8" stroke="currentColor" stroke-opacity=".35"/><rect x="2.2" y="2.2" width="10" height="6.6" rx="1.6" fill="currentColor"/></svg>
+    </div></div>
+
+    <div class="hdr">
+      <div class="back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 4 6.4 10l6 6"/></svg></div>
+      <div style="font-size:15.5px;font-weight:700">Who's coming</div>
+      <div style="font-size:13.5px;font-weight:600;color:var(--muted-2)">2 of 2</div>
+    </div>
+
+    <div class="body" style="padding-bottom:110px">
+      <div class="sec" style="padding-top:6px">
+        <div class="card unlock">
+          <h4>Everyone votes, not just you</h4>
+          <div class="sub">Send the link — they can vote before installing anything</div>
+          <div class="icons">
+            <div class="ic"><div class="bx"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M9 12a4 4 0 0 0 6 .5l2.8-2.8a4 4 0 0 0-5.6-5.6l-1.6 1.6"/><path d="M13 10a4 4 0 0 0-6-.5l-2.8 2.8a4 4 0 0 0 5.6 5.6l1.6-1.6"/></svg></div><span>Share<br>link</span></div>
+            <div class="ic"><div class="bx"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="3.5" y="4" width="15" height="14" rx="2"/><path d="M7 8.6h8M7 12h8M7 15.4h4.5"/></svg></div><span>Shared<br>blend</span></div>
+            <div class="ic"><div class="bx"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M11 18V5M6.5 9.5 11 5l4.5 4.5"/></svg></div><span>Group<br>votes</span></div>
+            <div class="ic"><div class="bx"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M3 6.4 8 4.2v11.4L3 17.8z"/><path d="M8 4.2 14 6.4v11.4L8 15.6z"/><path d="M14 6.4 19 4.2v11.4L14 17.8z"/></svg></div><span>Trip<br>map</span></div>
+          </div>
+          <div class="btn">Copy invite link</div>
+        </div>
+
+        <div class="label mut" style="margin-top:20px">From your contacts</div>
+        <div class="trip">
+          <div class="th f2" style="border-radius:50%;flex:0 0 42px;height:42px"></div>
+          <div class="in"><div class="nm" style="font-size:14.5px">Maya Rodriguez</div><div class="mt">Joined</div></div>
+          <div style="width:28px;height:28px;border-radius:7px;background:var(--navy);color:#fff;display:grid;place-items:center"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.3 5.6 9.9 11 4.3"/></svg></div>
+        </div>
+        <div class="trip">
+          <div class="th f5" style="border-radius:50%;flex:0 0 42px;height:42px"></div>
+          <div class="in"><div class="nm" style="font-size:14.5px">Dev Patel</div><div class="mt">Joined</div></div>
+          <div style="width:28px;height:28px;border-radius:7px;background:var(--navy);color:#fff;display:grid;place-items:center"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.3 5.6 9.9 11 4.3"/></svg></div>
+        </div>
+        <div class="trip">
+          <div class="th f6" style="border-radius:50%;flex:0 0 42px;height:42px"></div>
+          <div class="in"><div class="nm" style="font-size:14.5px">Sasha Kim</div><div class="mt">Invited · not opened</div></div>
+          <div style="width:28px;height:28px;border-radius:7px;background:#fff;border:1px solid var(--line);color:var(--muted);display:grid;place-items:center"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6.5 2.4v8.2M2.4 6.5h8.2"/></svg></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="position:absolute;left:0;right:0;bottom:0;padding:14px 18px 26px;background:#fff;border-top:1px solid var(--line);z-index:8">
+      <div class="btn">Create trip</div>
+    </div>
+  </div></div>
+</div>
+
+<!-- 05 -->
+<div class="slot">
+  <div class="cap"><span class="num">05</span><div class="ttl">Trip — Blend</div><div class="sub">The signature. One meter segment per person — filled blue for yes, outlined for no, empty for hasn't voted.</div></div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="status"><span>12:40</span><div class="r">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7.5" width="3" height="3.5" rx=".8"/><rect x="4.5" y="5" width="3" height="6" rx=".8"/><rect x="9" y="2.5" width="3" height="8.5" rx=".8"/><rect x="13.5" width="3" height="11" rx=".8"/></svg>
+      <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x=".6" y=".6" width="20" height="9.8" rx="2.8" stroke="currentColor" stroke-opacity=".35"/><rect x="2.2" y="2.2" width="10" height="6.6" rx="1.6" fill="currentColor"/></svg>
+    </div></div>
+
+    <div class="hdr">
+      <div class="back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 4 6.4 10l6 6"/></svg></div>
+      <div style="text-align:center">
+        <div style="font-size:15.5px;font-weight:700">Tokyo</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:1px">Mar 12–19 · 6 going</div>
+      </div>
+      <div class="faces"><i class="f2"></i><i class="f5"></i><i class="f6"></i></div>
+    </div>
+
+    <div class="seg"><button class="on">Blend</button><button>Itinerary</button></div>
+
+    <div class="body">
+      <div class="sec">
+        <div class="bl">
+          <div class="top"><i class="f2"></i><b>Maya</b><em>2h</em><span class="src">TikTok</span></div>
+          <div class="strip">
+            <div class="clip f3"><span class="pl"><svg width="9" height="9" viewBox="0 0 9 9" fill="currentColor"><path d="M2.3 1v7l5.4-3.5z"/></svg></span></div>
+            <div class="tx">
+              <h4>Golden Gai bar crawl, 6 tiny bars</h4>
+              <p>Narrow alleys in Shinjuku, most bars seat six. Go after 9pm, skip the two with cover charges.</p>
+              <div class="tags"><span class="tag"><svg width="9" height="9" viewBox="0 0 9 9" fill="currentColor"><path d="M4.5 8.3S7.8 5.5 7.8 3.4a3.3 3.3 0 1 0-6.6 0C1.2 5.5 4.5 8.3 4.5 8.3z"/></svg>Golden Gai</span><span class="tag">Shinjuku</span></div>
+            </div>
+          </div>
+          <div class="meter">
+            <div class="bars"><i class="up"></i><i class="up"></i><i class="up"></i><i class="up"></i><i class="up"></i><i class="no"></i></div>
+            <span class="tally">5/6</span>
+            <div class="votes">
+              <div class="vb on"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11.5V2.8M3.4 6.4 7 2.8l3.6 3.6"/></svg></div>
+              <div class="vb"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2.5v8.7M3.4 7.6 7 11.2l3.6-3.6"/></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bl">
+          <div class="top"><i class="f5"></i><b>Dev</b><em>5h</em><span class="src">TikTok</span></div>
+          <div class="strip">
+            <div class="clip f5"><span class="pl"><svg width="9" height="9" viewBox="0 0 9 9" fill="currentColor"><path d="M2.3 1v7l5.4-3.5z"/></svg></span></div>
+            <div class="tx">
+              <h4>teamLab Borderless, book 3 weeks out</h4>
+              <p>Digital art museum in Azabudai. Slots sell out — first entry of the day gets you empty rooms.</p>
+              <div class="tags"><span class="tag"><svg width="9" height="9" viewBox="0 0 9 9" fill="currentColor"><path d="M4.5 8.3S7.8 5.5 7.8 3.4a3.3 3.3 0 1 0-6.6 0C1.2 5.5 4.5 8.3 4.5 8.3z"/></svg>teamLab Borderless</span></div>
+            </div>
+          </div>
+          <div class="meter">
+            <div class="bars"><i class="up"></i><i class="up"></i><i class="up"></i><i class="up"></i><i></i><i></i></div>
+            <span class="tally">4/6</span>
+            <div class="votes">
+              <div class="vb"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11.5V2.8M3.4 6.4 7 2.8l3.6 3.6"/></svg></div>
+              <div class="vb"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2.5v8.7M3.4 7.6 7 11.2l3.6-3.6"/></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bl">
+          <div class="top"><i class="f6"></i><b>Sasha</b><em>1d</em><span class="src">Reels</span></div>
+          <div class="strip">
+            <div class="clip f6"><span class="pl"><svg width="9" height="9" viewBox="0 0 9 9" fill="currentColor"><path d="M2.3 1v7l5.4-3.5z"/></svg></span></div>
+            <div class="tx">
+              <h4>5am Tsukiji tuna auction</h4>
+              <p>Outer market opens early. Needs a 4:30am start and a taxi — no trains running.</p>
+              <div class="tags"><span class="tag">Tsukiji</span><span class="tag">4:30am</span></div>
+            </div>
+          </div>
+          <div class="meter">
+            <div class="bars"><i class="up"></i><i class="no"></i><i class="no"></i><i class="no"></i><i class="no"></i><i></i></div>
+            <span class="tally">1/6</span>
+            <div class="votes">
+              <div class="vb"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11.5V2.8M3.4 6.4 7 2.8l3.6 3.6"/></svg></div>
+              <div class="vb off"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2.5v8.7M3.4 7.6 7 11.2l3.6-3.6"/></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <div class="cluster">
+        <div class="pill on"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.6" y="6" width="16.8" height="12.6" rx="2.6"/><path d="M7.6 6V4.6A1.8 1.8 0 0 1 9.4 2.8h3.2a1.8 1.8 0 0 1 1.8 1.8V6"/></svg></div>
+        <div class="pill"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M2.6 5.6 8 3.4v13l-5.4 2.2z"/><path d="M8 3.4 14 5.6v13L8 16.4z"/><path d="M14 5.6 19.4 3.4v13l-5.4 2.2z"/></svg></div>
+      </div>
+      <div class="fab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 4.6v14.8M4.6 12h14.8"/></svg></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- 06 -->
+<div class="slot">
+  <div class="cap"><span class="num">06</span><div class="ttl">Shared clip — detail</div><div class="sub">The confirmation step. Extraction gets things wrong; fixing it should be one tap, not a support ticket.</div></div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="status" style="color:#fff;position:absolute;top:0;left:0;right:0"><span>12:40</span><div class="r">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7.5" width="3" height="3.5" rx=".8"/><rect x="4.5" y="5" width="3" height="6" rx=".8"/><rect x="9" y="2.5" width="3" height="8.5" rx=".8"/><rect x="13.5" width="3" height="11" rx=".8"/></svg>
+      <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x=".6" y=".6" width="20" height="9.8" rx="2.8" stroke="currentColor" stroke-opacity=".45"/><rect x="2.2" y="2.2" width="10" height="6.6" rx="1.6" fill="currentColor"/></svg>
+    </div></div>
+
+    <div class="body" style="padding-bottom:110px">
+      <div class="hero f3">
+        <div class="bk"><svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10.4 3.4 5 8.5l5.4 5.1"/></svg></div>
+        <div class="pl"><svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor"><path d="M5 2.4v13.2L15 9z"/></svg></div>
+        <div class="cr"><i class="f2"></i><div><b>Maya shared this</b><em>from @tokyofoodguide · 2h ago</em></div></div>
+      </div>
+
+      <div class="sec" style="padding-top:16px">
+        <div class="sum">
+          <div class="h"><svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 0l1.4 3.3L11 4.5 8.2 6.9l.7 3.6L6 8.8 3.1 10.5l.7-3.6L1 4.5l3.6-1.2z"/></svg>What this clip says</div>
+          <p>Six bars in Golden Gai, Shinjuku. Most seat about six people, so the group would split up. Go after 9pm. Two of the bars charge a cover — the creator names both and says to skip them.</p>
+        </div>
+
+        <div class="label mut">Places we found</div>
+        <div class="plc">
+          <div class="sq f4"></div>
+          <div><h5>Golden Gai</h5><p>Bar district · Shinjuku</p></div>
+          <div class="y"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.3 5.6 9.9 11 4.3"/></svg></div>
+        </div>
+        <div class="plc">
+          <div class="sq f6"></div>
+          <div><h5>Albatross</h5><p>Bar · not confirmed</p></div>
+          <div class="y"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.3 5.6 9.9 11 4.3"/></svg></div>
+          <div class="n"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3.2 3.2l6.6 6.6M9.8 3.2l-6.6 6.6"/></svg></div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px">Wrong spot? Tap × and search for the right one — it fixes it for everyone in the trip.</p>
+      </div>
+    </div>
+
+    <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 18px 26px;background:#fff;border-top:1px solid var(--line);z-index:8;display:flex;gap:9px">
+      <div class="btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 12.4V3M3.6 6.9 7.5 3l3.9 3.9"/></svg>Want this
+      </div>
+      <div class="btn sec" style="flex:0 0 60px;padding:14px 0;display:grid;place-items:center">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted)"><path d="M7.5 2.6V12M3.6 8.1 7.5 12l3.9-3.9"/></svg>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- 07 -->
+<div class="slot">
+  <div class="cap"><span class="num">07</span><div class="ttl">Trip — Itinerary</div><div class="sub">Built from what cleared the vote. Each stop shows its score so the plan can defend itself.</div></div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="status"><span>12:40</span><div class="r">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7.5" width="3" height="3.5" rx=".8"/><rect x="4.5" y="5" width="3" height="6" rx=".8"/><rect x="9" y="2.5" width="3" height="8.5" rx=".8"/><rect x="13.5" width="3" height="11" rx=".8"/></svg>
+      <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x=".6" y=".6" width="20" height="9.8" rx="2.8" stroke="currentColor" stroke-opacity=".35"/><rect x="2.2" y="2.2" width="10" height="6.6" rx="1.6" fill="currentColor"/></svg>
+    </div></div>
+
+    <div class="hdr">
+      <div class="back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 4 6.4 10l6 6"/></svg></div>
+      <div style="text-align:center">
+        <div style="font-size:15.5px;font-weight:700">Tokyo</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:1px">Updated 10 min ago</div>
+      </div>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#12385F" stroke-width="1.8" stroke-linecap="round"><path d="M3 5.5h14M5 10h10M8 14.5h4"/></svg>
+    </div>
+
+    <div class="seg"><button>Blend</button><button class="on">Itinerary</button></div>
+
+    <div class="chips" style="margin-bottom:18px">
+      <span class="chip on">Food first</span>
+      <span class="chip">No early starts</span>
+      <span class="chip">Under ¥8k/day</span>
+      <span class="chip">Walkable</span>
+    </div>
+
+    <div class="body">
+      <div class="sec">
+        <div class="day">
+          <div class="dayh"><b>Day 1</b><em>Thu, Mar 12</em></div>
+          <div class="stop"><div class="sl"><span class="tm">11:00</span></div>
+            <div class="sc"><div class="sq f4"></div><div><h5>Drop bags, Shibuya</h5><p>Hotel · 10 min from station</p></div></div></div>
+          <div class="stop"><div class="sl"><span class="tm">13:30</span></div>
+            <div class="sc"><div class="sq f2"></div><div><h5>Ichiran ramen</h5><p>From Dev's clip</p></div><span class="ag">6/6</span></div></div>
+          <div class="stop"><div class="sl"><span class="tm">21:00</span></div>
+            <div class="sc"><div class="sq f3"></div><div><h5>Golden Gai</h5><p>From Maya's clip</p></div><span class="ag">5/6</span></div></div>
+        </div>
+
+        <div class="day">
+          <div class="dayh"><b>Day 2</b><em>Fri, Mar 13</em></div>
+          <div class="stop"><div class="sl"><span class="tm">10:00</span></div>
+            <div class="sc"><div class="sq f5"></div><div><h5>teamLab Borderless</h5><p>Book by Feb 20</p></div><span class="ag">4/6</span></div></div>
+          <div class="stop"><div class="sl"><span class="tm">15:00</span></div>
+            <div class="sc"><div class="sq f6"></div><div><h5>Nakameguro walk</h5><p>From Sasha's clip</p></div><span class="ag">5/6</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <div class="cluster">
+        <div class="pill on"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.6" y="6" width="16.8" height="12.6" rx="2.6"/><path d="M7.6 6V4.6A1.8 1.8 0 0 1 9.4 2.8h3.2a1.8 1.8 0 0 1 1.8 1.8V6"/></svg></div>
+        <div class="pill"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M2.6 5.6 8 3.4v13l-5.4 2.2z"/><path d="M8 3.4 14 5.6v13L8 16.4z"/><path d="M14 5.6 19.4 3.4v13l-5.4 2.2z"/></svg></div>
+      </div>
+      <div class="fab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 4.6v14.8M4.6 12h14.8"/></svg></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- 08 -->
+<div class="slot">
+  <div class="cap"><span class="num">08</span><div class="ttl">Map — this trip</div><div class="sub">Numbered pins follow the day's order, so a plan that zigzags across the city shows itself.</div></div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="mp"><div id="map-trip" class="leaf"></div></div>
+
+    <div class="status" style="position:relative;z-index:6"><span>12:40</span><div class="r">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7.5" width="3" height="3.5" rx=".8"/><rect x="4.5" y="5" width="3" height="6" rx=".8"/><rect x="9" y="2.5" width="3" height="8.5" rx=".8"/><rect x="13.5" width="3" height="11" rx=".8"/></svg>
+      <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x=".6" y=".6" width="20" height="9.8" rx="2.8" stroke="currentColor" stroke-opacity=".35"/><rect x="2.2" y="2.2" width="10" height="6.6" rx="1.6" fill="currentColor"/></svg>
+    </div></div>
+
+    <div class="hdr" style="position:relative;z-index:6">
+      <div class="mark">blendit</div>
+      <div class="acts">
+        <div class="ib" style="background:#fff"><svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="7.3" cy="7.3" r="5.3"/><path d="M11.2 11.2 15.3 15.3"/></svg></div>
+        <span class="hpfp"></span>
+      </div>
+    </div>
+
+    <div class="chips" style="position:relative;z-index:6;margin-top:4px">
+      <span class="chip on">Tokyo</span><span class="chip out">Lisbon</span><span class="chip out">Cabo</span><span class="chip out">All time</span>
+    </div>
+
+    <div class="mcard">
+      <div class="k">Day 1 · Thu Mar 12</div>
+      <h4>Shibuya → Golden Gai</h4>
+      <div class="st">
+        <div><div class="v">5</div><div class="l">stops</div></div>
+        <div><div class="v">4.2 km</div><div class="l">on foot</div></div>
+        <div><div class="v">52 min</div><div class="l">walking</div></div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <div class="cluster">
+        <div class="pill"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.6" y="6" width="16.8" height="12.6" rx="2.6"/><path d="M7.6 6V4.6A1.8 1.8 0 0 1 9.4 2.8h3.2a1.8 1.8 0 0 1 1.8 1.8V6"/></svg></div>
+        <div class="pill on"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M2.6 5.6 8 3.4v13l-5.4 2.2z"/><path d="M8 3.4 14 5.6v13L8 16.4z"/><path d="M14 5.6 19.4 3.4v13l-5.4 2.2z"/></svg></div>
+      </div>
+      <div class="fab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 4.6v14.8M4.6 12h14.8"/></svg></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- 09 -->
+<div class="slot">
+  <div class="cap"><span class="num">09</span><div class="ttl">Map — everywhere you've been</div><div class="sub">The retention hook. Worth building, but only once there are trips in the system to fill it.</div></div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="mp"><div id="map-all" class="leaf"></div></div>
+
+    <div class="status" style="position:relative;z-index:6"><span>12:40</span><div class="r">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7.5" width="3" height="3.5" rx=".8"/><rect x="4.5" y="5" width="3" height="6" rx=".8"/><rect x="9" y="2.5" width="3" height="8.5" rx=".8"/><rect x="13.5" width="3" height="11" rx=".8"/></svg>
+      <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x=".6" y=".6" width="20" height="9.8" rx="2.8" stroke="currentColor" stroke-opacity=".35"/><rect x="2.2" y="2.2" width="10" height="6.6" rx="1.6" fill="currentColor"/></svg>
+    </div></div>
+
+    <div class="hdr" style="position:relative;z-index:6">
+      <div class="mark">blendit</div>
+      <div class="acts">
+        <div class="ib" style="background:#fff"><svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="7.3" cy="7.3" r="5.3"/><path d="M11.2 11.2 15.3 15.3"/></svg></div>
+        <span class="hpfp"></span>
+      </div>
+    </div>
+
+    <div class="chips" style="position:relative;z-index:6;margin-top:4px">
+      <span class="chip out">Tokyo</span><span class="chip out">Lisbon</span><span class="chip out">Cabo</span><span class="chip on">All time</span>
+    </div>
+
+    <div class="mcard">
+      <div class="k">Since Sept 2024</div>
+      <h4>7 cities, 4 countries</h4>
+      <div class="st">
+        <div><div class="v">7</div><div class="l">trips</div></div>
+        <div><div class="v">63</div><div class="l">places</div></div>
+        <div><div class="v">19</div><div class="l">people</div></div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <div class="cluster">
+        <div class="pill"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.6" y="6" width="16.8" height="12.6" rx="2.6"/><path d="M7.6 6V4.6A1.8 1.8 0 0 1 9.4 2.8h3.2a1.8 1.8 0 0 1 1.8 1.8V6"/></svg></div>
+        <div class="pill on"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M2.6 5.6 8 3.4v13l-5.4 2.2z"/><path d="M8 3.4 14 5.6v13L8 16.4z"/><path d="M14 5.6 19.4 3.4v13l-5.4 2.2z"/></svg></div>
+      </div>
+      <div class="fab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 4.6v14.8M4.6 12h14.8"/></svg></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- 10 -->
+<div class="slot">
+  <div class="cap"><span class="num">10</span><div class="ttl">Profile</div><div class="sub">Deliberately thin. Settings and history — none of it is why anyone opens the app.</div></div>
+  <div class="phone"><div class="screen">
+    <div class="notch"></div>
+    <div class="status"><span>12:40</span><div class="r">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7.5" width="3" height="3.5" rx=".8"/><rect x="4.5" y="5" width="3" height="6" rx=".8"/><rect x="9" y="2.5" width="3" height="8.5" rx=".8"/><rect x="13.5" width="3" height="11" rx=".8"/></svg>
+      <svg width="24" height="11" viewBox="0 0 24 11" fill="none"><rect x=".6" y=".6" width="20" height="9.8" rx="2.8" stroke="currentColor" stroke-opacity=".35"/><rect x="2.2" y="2.2" width="10" height="6.6" rx="1.6" fill="currentColor"/></svg>
+    </div></div>
+
+    <div class="hdr">
+      <div style="font-size:15.5px;font-weight:700">Profile</div>
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#12385F" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="2.8"/><path d="M10 2v2M10 16v2M18 10h-2M4 10H2M15.7 4.3l-1.4 1.4M5.7 14.3l-1.4 1.4M15.7 15.7l-1.4-1.4M5.7 5.7 4.3 4.3"/></svg>
+    </div>
+
+    <div class="body">
+      <div class="pro">
+        <div class="big"></div>
+        <h2>Jordan Vasquez</h2>
+        <div class="at">@jvasq</div>
+        <div class="ps">
+          <div><div class="v">7</div><div class="l">trips</div></div>
+          <div><div class="v">142</div><div class="l">shared</div></div>
+          <div><div class="v">19</div><div class="l">travelled with</div></div>
+        </div>
+      </div>
+
+      <div class="sec" style="padding-top:0">
+        <div class="tl">
+          <span class="ic"><svg width="19" height="19" viewBox="0 0 19 19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="2" y="3.2" width="15" height="13" rx="2.2"/><path d="M2 7.2h15M6.2 2v2.4M12.8 2v2.4"/></svg></span>
+          <div><h5>Past trips</h5><p>4 archived</p></div>
+          <span class="cv"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 3 10 7.5 5.6 12"/></svg></span>
+        </div>
+        <div class="tl">
+          <span class="ic"><svg width="19" height="19" viewBox="0 0 19 19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="2.5" y="2.5" width="14" height="14" rx="2.2"/><path d="M6 6.8h7M6 9.5h7M6 12.2h4"/></svg></span>
+          <div><h5>Your posts</h5><p>2 published</p></div>
+          <span class="cv"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 3 10 7.5 5.6 12"/></svg></span>
+        </div>
+        <div class="tl">
+          <span class="ic"><svg width="19" height="19" viewBox="0 0 19 19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="2.5" y="4" width="14" height="11" rx="2"/><path d="M7.6 7.2v4.6l4-2.3z"/></svg></span>
+          <div><h5>Shared clips</h5><p>Manage what you've sent to trips</p></div>
+          <span class="cv"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 3 10 7.5 5.6 12"/></svg></span>
+        </div>
+        <div class="tl">
+          <span class="ic"><svg width="19" height="19" viewBox="0 0 19 19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.2 7a4.7 4.7 0 1 0-9.4 0c0 5.5-2.1 7-2.1 7h13.6s-2.1-1.5-2.1-7z"/><path d="M7.8 16.2a1.9 1.9 0 0 0 3.4 0"/></svg></span>
+          <div><h5>Notifications</h5><p>When someone shares or votes</p></div>
+          <span class="cv"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 3 10 7.5 5.6 12"/></svg></span>
+        </div>
+        <div class="tl" style="border-bottom:0">
+          <span class="ic"><svg width="19" height="19" viewBox="0 0 19 19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.4 16.2H4.2a1.8 1.8 0 0 1-1.8-1.8V4.6a1.8 1.8 0 0 1 1.8-1.8h3.2M12.4 13.2l3.8-3.7-3.8-3.8M16.2 9.5H7.4"/></svg></span>
+          <div><h5>Log out</h5></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav">
+      <div class="cluster">
+        <div class="pill"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.6" y="6" width="16.8" height="12.6" rx="2.6"/><path d="M7.6 6V4.6A1.8 1.8 0 0 1 9.4 2.8h3.2a1.8 1.8 0 0 1 1.8 1.8V6"/></svg></div>
+        <div class="pill"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M2.6 5.6 8 3.4v13l-5.4 2.2z"/><path d="M8 3.4 14 5.6v13L8 16.4z"/><path d="M14 5.6 19.4 3.4v13l-5.4 2.2z"/></svg></div>
+      </div>
+      <div class="fab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 4.6v14.8M4.6 12h14.8"/></svg></div>
+    </div>
+  </div></div>
+</div>
+
+</div>
+
+<script>
+(function(){
+  var TILE='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      ATTR='&copy; OpenStreetMap &copy; CARTO';
+
+  function icon(html,size){return L.divIcon({html:html,className:'',iconSize:[size,size],iconAnchor:[size/2,size/2],popupAnchor:[0,-size/2]});}
+
+  // ---- Screen 08: Tokyo itinerary, day 1 ----
+  var stops=[
+    {n:1,ll:[35.6595,139.7005],t:'Drop bags, Shibuya',s:'11:00 · Hotel'},
+    {n:2,ll:[35.6605,139.6993],t:'Ichiran ramen',s:'13:30 · 6/6 agreed'},
+    {n:3,ll:[35.6938,139.7048],t:'Golden Gai',s:'21:00 · 5/6 agreed'},
+    {n:4,ll:[35.6605,139.7415],t:'teamLab Borderless',s:'Day 2 · 4/6 agreed',o:1},
+    {n:5,ll:[35.6438,139.6989],t:'Nakameguro walk',s:'Day 2 · 5/6 agreed',o:1}
+  ];
+  var mt=L.map('map-trip',{zoomControl:false,attributionControl:true});
+  L.tileLayer(TILE,{attribution:ATTR,maxZoom:19}).addTo(mt);
+  L.polyline(stops.map(function(x){return x.ll;}),
+    {color:'#12385F',weight:2.5,opacity:.5,dashArray:'6 7'}).addTo(mt);
+  stops.forEach(function(x){
+    L.marker(x.ll,{icon:icon('<div class="pin-n'+(x.o?' out':'')+'">'+x.n+'</div>',32)})
+     .addTo(mt).bindPopup('<b>'+x.t+'</b><em>'+x.s+'</em>');
+  });
+  mt.fitBounds(L.latLngBounds(stops.map(function(x){return x.ll;})),{padding:[70,70]});
+
+  // ---- Screen 09: everywhere you've been ----
+  var trips=[
+    {ll:[35.6762,139.6503],t:'Tokyo',s:'Mar 2026 · planning'},
+    {ll:[38.7223,-9.1393],t:'Lisbon',s:'May 2026 · planning'},
+    {ll:[22.8905,-109.9167],t:'Cabo',s:'Jan 2026 · wrapped'}
+  ];
+  var past=[
+    {ll:[41.3851,2.1734],t:'Barcelona',s:'Jun 2025'},
+    {ll:[19.4326,-99.1332],t:'Mexico City',s:'Mar 2025'},
+    {ll:[40.7128,-74.0060],t:'New York',s:'Sep 2024'}
+  ];
+  var ma=L.map('map-all',{zoomControl:false,attributionControl:true,worldCopyJump:true});
+  L.tileLayer(TILE,{attribution:ATTR,maxZoom:19}).addTo(ma);
+  past.forEach(function(x){
+    L.marker(x.ll,{icon:icon('<div class="pin-d sm"></div>',15)})
+     .addTo(ma).bindPopup('<b>'+x.t+'</b><em>'+x.s+'</em>');
+  });
+  trips.forEach(function(x){
+    L.marker(x.ll,{icon:icon('<div class="pin-d"></div>',24)})
+     .addTo(ma).bindPopup('<b>'+x.t+'</b><em>'+x.s+'</em>');
+  });
+  ma.setView([28,-5],1);
+
+  setTimeout(function(){mt.invalidateSize();ma.invalidateSize();},60);
+})();
+</script>
+</body>
+</html>
