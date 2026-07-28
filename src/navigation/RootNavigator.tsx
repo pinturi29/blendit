@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '../context/AuthContext';
+import { ClipDetailScreen } from '../screens/ClipDetailScreen';
 import { CreateTripScreen } from '../screens/CreateTripScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -54,7 +55,22 @@ function TripDetailRoute() {
 function TripViewRoute() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<RootStackParamList, 'TripView'>>();
-  return <TripViewScreen tripId={route.params.tripId} onBack={() => navigation.goBack()} />;
+  return (
+    <TripViewScreen
+      tripId={route.params.tripId}
+      onBack={() => navigation.goBack()}
+      onOpenClip={(clipId) => navigation.navigate('ClipDetail', { clipId })}
+      onViewOnMap={(tripId, placeId) =>
+        navigation.navigate('Tabs', { focusMapTripId: tripId, focusMapPlaceId: placeId })
+      }
+    />
+  );
+}
+
+function ClipDetailRoute() {
+  const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteProp<RootStackParamList, 'ClipDetail'>>();
+  return <ClipDetailScreen clipId={route.params.clipId} onBack={() => navigation.goBack()} />;
 }
 
 export function RootNavigator() {
@@ -92,6 +108,7 @@ export function RootNavigator() {
           <Stack.Screen name="Profile" component={ProfileRoute} />
           <Stack.Screen name="TripDetail" component={TripDetailRoute} />
           <Stack.Screen name="TripView" component={TripViewRoute} />
+          <Stack.Screen name="ClipDetail" component={ClipDetailRoute} />
         </>
       )}
     </Stack.Navigator>

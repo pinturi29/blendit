@@ -9,6 +9,9 @@ dist/
 web-build/
 expo-env.d.ts
 
+# worker/ (temporary downloaded videos, deleted after each job anyway)
+worker/downloads/
+
 # Native
 .kotlin/
 *.orig.*

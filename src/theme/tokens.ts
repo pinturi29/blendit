@@ -24,13 +24,13 @@ export const colors = {
 // Flat placeholder-photo block colors (.f1–.f6), used for trip thumbnails
 export const photoBlocks = ['#C6D4E6', '#A9BFDA', '#8CA8CB', '#DAE2ED', '#6F8FBC', '#B8C9DF'] as const;
 
-// font-family: 'Inter',...  and  'Instrument Serif',...
+// font-family: 'Poppins',...  and  'Instrument Serif',...
 // Each weight loads as its own named family via @expo-google-fonts.
 export const fontFamily = {
-  regular: 'Inter_400Regular',
-  medium: 'Inter_500Medium',
-  semibold: 'Inter_600SemiBold',
-  bold: 'Inter_700Bold',
+  regular: 'Poppins_400Regular',
+  medium: 'Poppins_500Medium',
+  semibold: 'Poppins_600SemiBold',
+  bold: 'Poppins_700Bold',
   serif: 'InstrumentSerif_400Regular', // .mark / masthead h1
   serifItalic: 'InstrumentSerif_400Regular_Italic',
 } as const;

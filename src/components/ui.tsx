@@ -27,6 +27,24 @@ export function Avatar({ uri, size }: { uri: string | null; size: number }) {
   return <View style={[styles.avatarPlaceholder, shape]} />;
 }
 
+// Up/down vote arrows — shared by clip-level votes (Blend tab, clip detail)
+// and per-place votes (clip detail's Places We Found list).
+export function UpIcon({ color }: { color: string }) {
+  return (
+    <Svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M7 11.5V2.8M3.4 6.4 7 2.8l3.6 3.6" />
+    </Svg>
+  );
+}
+
+export function DownIcon({ color }: { color: string }) {
+  return (
+    <Svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M7 2.5v8.7M3.4 7.6 7 11.2l3.6-3.6" />
+    </Svg>
+  );
+}
+
 // Small pencil-in-a-circle overlay for tappable photos (profile avatar,
 // trip cover) — indicates "tap to change."
 export function EditBadge({ size = 26 }: { size?: number }) {
@@ -242,7 +260,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   chip: {
-    borderRadius: radii.full,
+    borderRadius: radii.lg,
     paddingVertical: 9,
     paddingHorizontal: 15,
     backgroundColor: colors.chip,

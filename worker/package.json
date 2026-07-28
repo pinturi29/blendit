@@ -1,0 +1,31 @@
+{
+  "name": "blendit-worker",
+  "version": "1.0.0",
+  "description": "Standalone Node service: claims pending trip_clips from Supabase, resolves TikTok/Instagram links via Apify, analyzes them with Claude, and writes results back. Reads its secrets from the repo root's .env, not this folder's — see ../.env.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "analyze": "tsx src/index.ts",
+    "worker": "tsx src/worker.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/platform.test.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
+    "@supabase/supabase-js": "^2.110.8",
+    "apify-client": "^2.13.0",
+    "dotenv": "^17.2.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.19",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

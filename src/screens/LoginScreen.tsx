@@ -37,7 +37,11 @@ export function LoginScreen({ onSwitchToSignUp }: { onSwitchToSignUp: () => void
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <DismissKeyboardView style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
           <Wordmark />
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.subtitle}>Log in to pick up where you left off.</Text>

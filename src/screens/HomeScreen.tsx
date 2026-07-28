@@ -3,7 +3,8 @@ import { FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Tex
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DismissKeyboardView } from '../components/DismissKeyboardView';
-import { Avatar, Button, Chip, Wordmark } from '../components/ui';
+import { SlidingUnderlineTabs } from '../components/SlidingTabs';
+import { Avatar, Button, Wordmark } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { listPendingVotesByTrip, PendingVoteSummary } from '../lib/clips';
 import { getErrorMessage } from '../lib/errors';
@@ -149,7 +150,11 @@ function UnlockCard({ summary, onOpen }: { summary: PendingVoteSummary; onOpen: 
       <View style={styles.unlockIcons}>
         {shown.map((clip, i) => (
           <View key={clip.id} style={styles.unlockIcon}>
-            <View style={[styles.unlockBox, { backgroundColor: photoBlocks[i % photoBlocks.length] }]} />
+            {clip.thumbnail_url ? (
+              <Image source={{ uri: clip.thumbnail_url }} style={styles.unlockBox} />
+            ) : (
+              <View style={[styles.unlockBox, { backgroundColor: photoBlocks[i % photoBlocks.length] }]} />
+            )}
             <Text style={styles.unlockIconLabel} numberOfLines={2}>
               {clip.title}
             </Text>
@@ -243,19 +248,15 @@ export function HomeScreen({
         </Pressable>
       </View>
 
-      <View style={styles.chips}>
-        <Chip label="All trips" variant={filter === 'all' ? 'on' : 'out'} onPress={() => setFilter('all')} />
-        <Chip
-          label="Archived"
-          variant={filter === 'archived' ? 'on' : 'out'}
-          onPress={() => setFilter('archived')}
-        />
-        <Chip
-          label={`Invites${invites.length > 0 ? ` (${invites.length})` : ''}`}
-          variant={filter === 'invites' ? 'on' : 'out'}
-          onPress={() => setFilter('invites')}
-        />
-      </View>
+      <SlidingUnderlineTabs
+        tabs={[
+          { key: 'all', label: 'All trips' },
+          { key: 'archived', label: 'Archived' },
+          { key: 'invites', label: `Invites${invites.length > 0 ? ` (${invites.length})` : ''}` },
+        ]}
+        active={filter}
+        onChange={setFilter}
+      />
 
       {showingInvites ? (
         <FlatList
@@ -287,6 +288,7 @@ export function HomeScreen({
             data={filteredTrips}
             keyExtractor={(t) => t.id}
             contentContainerStyle={styles.listContent}
+            keyboardDismissMode="on-drag"
             refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
             renderItem={({ item, index }) => (
               <TripRow trip={item} index={index} onPress={() => onOpenTrip(item.id)} />
@@ -352,12 +354,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xxl,
     paddingTop: spacing.xxl,
     paddingBottom: spacing.xl,
-  },
-  chips: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xxl,
-    marginBottom: spacing.xxl,
   },
   listContent: {
     paddingHorizontal: spacing.xxl,

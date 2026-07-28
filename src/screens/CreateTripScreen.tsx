@@ -67,6 +67,8 @@ export function CreateTripScreen({
 
   const [destination, setDestination] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [homeBase, setHomeBase] = useState('');
+  const [homeBaseCoords, setHomeBaseCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [tripName, setTripName] = useState('');
   const [coverUri, setCoverUri] = useState<string | null>(null);
   const [startDate, setStartDate] = useState(() => new Date());
@@ -121,6 +123,9 @@ export function CreateTripScreen({
         name: tripName,
         lat: coords?.lat ?? null,
         lng: coords?.lon ?? null,
+        homeBaseLabel: homeBase.trim(),
+        homeBaseLat: homeBaseCoords?.lat ?? null,
+        homeBaseLng: homeBaseCoords?.lon ?? null,
         startDate: toISODate(startDate),
         endDate: toISODate(endDate),
         partySize,
@@ -154,7 +159,11 @@ export function CreateTripScreen({
       >
         <StepHeader title="New trip" step={1} onBack={onCancel} />
         <DismissKeyboardView style={styles.flex}>
-          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
             <PlaceField
               label="Where are you going"
               value={destination}
@@ -167,6 +176,19 @@ export function CreateTripScreen({
                 setCoords({ lat: place.lat, lon: place.lon });
               }}
               placeholder="Tokyo, Japan"
+            />
+            <PlaceField
+              label="Home base (optional)"
+              value={homeBase}
+              onChangeText={(text) => {
+                setHomeBase(text);
+                setHomeBaseCoords(null);
+              }}
+              onSelect={(place) => {
+                setHomeBase(place.label);
+                setHomeBaseCoords({ lat: place.lat, lon: place.lon });
+              }}
+              placeholder="Hotel or Airbnb address"
             />
             <TextField
               label="Trip name (optional)"
@@ -223,7 +245,11 @@ export function CreateTripScreen({
     >
       <StepHeader title="Who's coming" step={2} onBack={() => setStep('basics')} />
       <DismissKeyboardView style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
           <Card>
             <Text style={styles.cardTitle}>Everyone votes, not just you</Text>
             <Text style={styles.cardBody}>

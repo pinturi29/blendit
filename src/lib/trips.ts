@@ -8,6 +8,11 @@ export type Trip = {
   cover_photo_url: string | null;
   lat: number | null;
   lng: number | null;
+  // Where the group is actually staying (hotel/Airbnb address) — distinct
+  // from lat/lng above, which is just the general destination.
+  home_base_label: string | null;
+  home_base_lat: number | null;
+  home_base_lng: number | null;
   start_date: string; // YYYY-MM-DD
   end_date: string; // YYYY-MM-DD
   party_size: number;
@@ -35,6 +40,9 @@ export type NewTripInput = {
   name: string;
   lat: number | null;
   lng: number | null;
+  homeBaseLabel?: string;
+  homeBaseLat?: number | null;
+  homeBaseLng?: number | null;
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
   partySize: number;
@@ -144,6 +152,28 @@ export async function updateTripName(tripId: string, name: string): Promise<void
   if (error) throw error;
 }
 
+// startDate/endDate are 'YYYY-MM-DD', same format the row already stores.
+export async function updateTripDates(tripId: string, startDate: string, endDate: string): Promise<void> {
+  const { error } = await supabase.from('trips').update({ start_date: startDate, end_date: endDate }).eq('id', tripId);
+  if (error) throw error;
+}
+
+// Pass null to clear the home base entirely.
+export async function updateHomeBase(
+  tripId: string,
+  place: { label: string; lat: number | null; lng: number | null } | null
+): Promise<void> {
+  const { error } = await supabase
+    .from('trips')
+    .update({
+      home_base_label: place?.label.trim() || null,
+      home_base_lat: place?.lat ?? null,
+      home_base_lng: place?.lng ?? null,
+    })
+    .eq('id', tripId);
+  if (error) throw error;
+}
+
 // Extra locations attached to a trip — shown only on the trip detail
 // screen, never changes trips.destination (the main title on Home).
 export async function listTripStops(tripId: string): Promise<TripStop[]> {
@@ -192,6 +222,9 @@ export async function createTripWithInvites(input: NewTripInput): Promise<Trip> 
       name: input.name.trim() || null,
       lat: input.lat,
       lng: input.lng,
+      home_base_label: input.homeBaseLabel?.trim() || null,
+      home_base_lat: input.homeBaseLat ?? null,
+      home_base_lng: input.homeBaseLng ?? null,
       start_date: input.startDate,
       end_date: input.endDate,
       party_size: input.partySize,

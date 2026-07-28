@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DateField } from '../components/DateField';
 import { DismissKeyboardView } from '../components/DismissKeyboardView';
 import { PlaceField } from '../components/PlaceField';
 import { Avatar, Button, Card, EditBadge, TextField } from '../components/ui';
@@ -34,9 +35,22 @@ import {
   tripDisplayName,
   TripInvite,
   TripStop,
+  updateHomeBase,
+  updateTripDates,
   updateTripName,
 } from '../lib/trips';
 import { colors, fontFamily, fontSize, radii, spacing } from '../theme/tokens';
+
+function toISODate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function fromISODate(iso: string) {
+  return new Date(`${iso}T00:00:00`);
+}
 
 export function TripDetailScreen({
   tripId,
@@ -69,6 +83,17 @@ export function TripDetailScreen({
   const [isEditingTripName, setIsEditingTripName] = useState(false);
   const [tripNameDraft, setTripNameDraft] = useState('');
   const [isSavingTripName, setIsSavingTripName] = useState(false);
+
+  const [isEditingHomeBase, setIsEditingHomeBase] = useState(false);
+  const [homeBaseDraft, setHomeBaseDraft] = useState('');
+  const [homeBaseCoordsDraft, setHomeBaseCoordsDraft] = useState<{ lat: number; lon: number } | null>(null);
+  const [isSavingHomeBase, setIsSavingHomeBase] = useState(false);
+
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [startDateDraft, setStartDateDraft] = useState(() => new Date());
+  const [endDateDraft, setEndDateDraft] = useState(() => new Date());
+  const [isSavingDates, setIsSavingDates] = useState(false);
+  const [datesError, setDatesError] = useState<string | null>(null);
 
   const fetchTrip = useCallback(async () => {
     try {
@@ -194,6 +219,71 @@ export function TripDetailScreen({
     }
   }
 
+  function openEditHomeBase() {
+    setHomeBaseDraft(trip?.home_base_label ?? '');
+    setHomeBaseCoordsDraft(
+      trip?.home_base_lat != null && trip?.home_base_lng != null
+        ? { lat: trip.home_base_lat, lon: trip.home_base_lng }
+        : null
+    );
+    setIsEditingHomeBase(true);
+  }
+
+  async function handleSaveHomeBase() {
+    if (!trip) return;
+    setIsSavingHomeBase(true);
+    try {
+      const place = homeBaseDraft.trim()
+        ? { label: homeBaseDraft, lat: homeBaseCoordsDraft?.lat ?? null, lng: homeBaseCoordsDraft?.lon ?? null }
+        : null;
+      await updateHomeBase(trip.id, place);
+      setTrip((prev) =>
+        prev
+          ? {
+              ...prev,
+              home_base_label: place?.label.trim() || null,
+              home_base_lat: place?.lat ?? null,
+              home_base_lng: place?.lng ?? null,
+            }
+          : prev
+      );
+      setIsEditingHomeBase(false);
+    } catch (e) {
+      Alert.alert('Could not update home base', getErrorMessage(e));
+    } finally {
+      setIsSavingHomeBase(false);
+    }
+  }
+
+  function openEditDates() {
+    if (!trip) return;
+    setStartDateDraft(fromISODate(trip.start_date));
+    setEndDateDraft(fromISODate(trip.end_date));
+    setDatesError(null);
+    setIsEditingDates(true);
+  }
+
+  async function handleSaveDates() {
+    if (!trip) return;
+    if (endDateDraft < startDateDraft) {
+      setDatesError('Return date is before the leave date.');
+      return;
+    }
+    setDatesError(null);
+    setIsSavingDates(true);
+    try {
+      const startDate = toISODate(startDateDraft);
+      const endDate = toISODate(endDateDraft);
+      await updateTripDates(trip.id, startDate, endDate);
+      setTrip((prev) => (prev ? { ...prev, start_date: startDate, end_date: endDate } : prev));
+      setIsEditingDates(false);
+    } catch (e) {
+      Alert.alert('Could not update dates', getErrorMessage(e));
+    } finally {
+      setIsSavingDates(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
       <View style={styles.header}>
@@ -203,13 +293,9 @@ export function TripDetailScreen({
         <Text style={styles.headerTitle} numberOfLines={1}>
           {trip ? tripDisplayName(trip) : ''}
         </Text>
-        {isOwner ? (
-          <Pressable onPress={openEditTripName} hitSlop={8}>
-            <Text style={styles.changeName}>Change name</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.headerSpacer} />
-        )}
+        <Pressable onPress={openEditTripName} hitSlop={8}>
+          <Text style={styles.changeName}>Change name</Text>
+        </Pressable>
       </View>
 
       {isLoading ? (
@@ -223,7 +309,11 @@ export function TripDetailScreen({
       ) : (
         <>
           <DismissKeyboardView style={styles.flex}>
-          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
             <Pressable onPress={handleChangeCover} disabled={isUploadingCover || !isOwner}>
               <View style={styles.cover}>
                 {trip.cover_photo_url ? (
@@ -250,7 +340,12 @@ export function TripDetailScreen({
             </View>
 
             <Card>
-              <Text style={styles.tripDates}>{formatDateRange(trip.start_date, trip.end_date)}</Text>
+              <View style={styles.tripDatesRow}>
+                <Text style={styles.tripDates}>{formatDateRange(trip.start_date, trip.end_date)}</Text>
+                <Pressable onPress={openEditDates} hitSlop={8}>
+                  <Text style={styles.changeName}>Edit</Text>
+                </Pressable>
+              </View>
               <Text style={styles.tripMeta}>
                 {nightsBetween(trip.start_date, trip.end_date)} nights · {trip.party_size} going
               </Text>
@@ -261,7 +356,26 @@ export function TripDetailScreen({
               <Button title="View trip" onPress={onViewTrip} />
             </View>
 
-            <Text style={styles.sectionLabel}>Stops</Text>
+            <View style={styles.sectionLabelRow}>
+              <Text style={[styles.sectionLabel, styles.sectionLabelNoMargin]}>Home base</Text>
+              {isOwner && (
+                <Pressable onPress={openEditHomeBase} hitSlop={8}>
+                  <Text style={styles.changeName}>{trip.home_base_label ? 'Change' : 'Add'}</Text>
+                </Pressable>
+              )}
+            </View>
+            {trip.home_base_label ? (
+              <View style={styles.memberRow}>
+                <View style={[styles.stopDot, styles.homeBaseDot]} />
+                <Text style={styles.memberEmail} numberOfLines={1}>
+                  {trip.home_base_label}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.emptyBodyLeft}>Not set yet — where's the group staying?</Text>
+            )}
+
+            <Text style={[styles.sectionLabel, styles.sectionLabelSpaced]}>Stops</Text>
             {stops.map((stop) => (
               <View key={stop.id} style={styles.memberRow}>
                 <View style={styles.stopDot} />
@@ -362,6 +476,63 @@ export function TripDetailScreen({
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
+
+      <Modal
+        visible={isEditingHomeBase}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsEditingHomeBase(false)}
+      >
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <Pressable style={styles.overlay} onPress={() => setIsEditingHomeBase(false)}>
+            <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+              <PlaceField
+                label="Home base"
+                value={homeBaseDraft}
+                onChangeText={(text) => {
+                  setHomeBaseDraft(text);
+                  setHomeBaseCoordsDraft(null);
+                }}
+                onSelect={(place) => {
+                  setHomeBaseDraft(place.label);
+                  setHomeBaseCoordsDraft({ lat: place.lat, lon: place.lon });
+                }}
+                placeholder="Hotel or Airbnb address"
+              />
+              <Button title="Save" onPress={handleSaveHomeBase} loading={isSavingHomeBase} />
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={isEditingDates}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsEditingDates(false)}
+      >
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <Pressable style={styles.overlay} onPress={() => setIsEditingDates(false)}>
+            <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.datePair}>
+                <View style={styles.datePairItem}>
+                  <DateField label="Leaving" value={startDateDraft} onChange={setStartDateDraft} />
+                </View>
+                <View style={styles.datePairItem}>
+                  <DateField
+                    label="Coming back"
+                    value={endDateDraft}
+                    onChange={setEndDateDraft}
+                    minimumDate={startDateDraft}
+                  />
+                </View>
+              </View>
+              {datesError ? <Text style={styles.error}>{datesError}</Text> : null}
+              <Button title="Save" onPress={handleSaveDates} loading={isSavingDates} />
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -394,9 +565,6 @@ const styles = StyleSheet.create({
     fontSize: 15.5,
     color: colors.text,
     textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 32,
   },
   changeName: {
     fontFamily: fontFamily.semibold,
@@ -461,6 +629,11 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: 3,
   },
+  tripDatesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   tripDates: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.lg,
@@ -494,6 +667,20 @@ const styles = StyleSheet.create({
   sectionLabelSpaced: {
     marginTop: spacing.xxxl,
   },
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
+  sectionLabelNoMargin: {
+    marginBottom: 0,
+  },
+  emptyBodyLeft: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.md,
+    color: colors.muted,
+  },
   addStopRow: {
     flexDirection: 'row',
   },
@@ -513,6 +700,9 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     backgroundColor: '#A9BFDA',
+  },
+  homeBaseDot: {
+    backgroundColor: '#8B1E1E',
   },
   memberEmail: {
     flex: 1,
@@ -548,5 +738,19 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
     padding: spacing.xxl,
+  },
+  datePair: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  datePairItem: {
+    flex: 1,
+  },
+  error: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: '#C23B3B',
+    marginTop: -spacing.sm,
+    marginBottom: spacing.lg,
   },
 });

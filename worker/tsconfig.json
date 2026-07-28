@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    /* Modern Node 20 ESM setup. "NodeNext" tells TypeScript to resolve modules
+       the same way Node's native ESM loader does, which is why our relative
+       imports throughout src/ use explicit ".js" extensions. This is a
+       separate, self-contained TS project from the Expo app one directory up
+       (react-native/DOM globals vs Node's, "bundler" vs "NodeNext" module
+       resolution) -- deliberately not extending or extended by it. */
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+
+    "rootDir": "src",
+    "outDir": "dist",
+    "sourceMap": true,
+
+    /* Strictness */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Interop / build hygiene */
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": false,
+    "verbatimModuleSyntax": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "downloads"]
+}
