@@ -100,6 +100,27 @@ const ResponseSchema = z.object({
   ),
 });
 
+// Claude's tool_use input is normally already a parsed object matching
+// input_schema, but for large/complex arrays it can occasionally emit
+// `days` as a JSON-encoded string instead of a native array (observed in
+// production: a real response with `days` as a string that itself parsed
+// into a valid day list). Coerce that one specific, observed shape before
+// validating, rather than failing a whole itinerary generation over a
+// serialization quirk the schema already fully describes.
+function coerceStringifiedDays(input: unknown): unknown {
+  if (input && typeof input === "object" && "days" in input) {
+    const { days, ...rest } = input as { days: unknown };
+    if (typeof days === "string") {
+      try {
+        return { ...rest, days: JSON.parse(days) };
+      } catch {
+        return input; // let normal validation fail with a clear error
+      }
+    }
+  }
+  return input;
+}
+
 export async function generateItinerary(params: {
   destination: string;
   dates: string[];
@@ -157,7 +178,7 @@ export async function generateItinerary(params: {
     throw new ClaudeAnalysisError("Claude did not call create_itinerary as required.");
   }
 
-  const validated = ResponseSchema.safeParse(toolUse.input);
+  const validated = ResponseSchema.safeParse(coerceStringifiedDays(toolUse.input));
   if (!validated.success) {
     throw new ClaudeAnalysisError(`Claude's itinerary response didn't match the expected shape: ${validated.error.message}`);
   }

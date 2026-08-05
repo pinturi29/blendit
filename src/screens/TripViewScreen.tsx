@@ -6,9 +6,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DismissKeyboardView } from '../components/DismissKeyboardView';
 import { SlidingUnderlineTabs } from '../components/SlidingTabs';
 import { TimeField } from '../components/TimeField';
-import { Avatar, Button, DownIcon, TextField, UpIcon } from '../components/ui';
+import { Avatar, Button, DownIcon, TextField, TrashIcon, UpIcon } from '../components/ui';
 import { emojiForCategory } from '../lib/categoryEmoji';
-import { addClip, ClipWithVotes, listClipsWithVotes, listTripPlaces, PlaceWithVotes, setVote } from '../lib/clips';
+import {
+  addClip,
+  ClipWithVotes,
+  listClipsWithVotes,
+  listTripPlaces,
+  PlaceWithVotes,
+  removeClip,
+  setVote,
+} from '../lib/clips';
 import { getErrorMessage } from '../lib/errors';
 import { deleteItinerary, getItinerary, requestItinerary, TripItinerary } from '../lib/itinerary';
 import { getProfilesByIds, Profile } from '../lib/profile';
@@ -147,6 +155,7 @@ export function TripViewScreen({
   const [isAdding, setIsAdding] = useState(false);
   const [url, setUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
 
   const [itinerary, setItinerary] = useState<TripItinerary | null>(null);
   const [isRequestingItinerary, setIsRequestingItinerary] = useState(false);
@@ -298,6 +307,29 @@ export function TripViewScreen({
     }
   }
 
+  async function handleDeleteClip(clipId: string) {
+    setDeletingClipId(clipId);
+    try {
+      await removeClip(clipId);
+      await fetchAll();
+    } catch (e) {
+      Alert.alert('Could not delete this clip', getErrorMessage(e));
+    } finally {
+      setDeletingClipId(null);
+    }
+  }
+
+  function confirmDeleteClip(clipId: string) {
+    Alert.alert(
+      'Delete this clip?',
+      "This removes it — and everything extracted from it — for everyone on the trip. This can't be undone.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete clip', style: 'destructive', onPress: () => handleDeleteClip(clipId) },
+      ]
+    );
+  }
+
   async function handleShare() {
     if (!url.trim()) return;
     setIsSubmitting(true);
@@ -337,6 +369,16 @@ export function TripViewScreen({
     }
     return counts;
   }, [places]);
+
+  // Covers the whole span from tapping the button to a finished plan --
+  // including the gap right after requesting, where the local
+  // isRequestingItinerary flag has already reset (the insert itself
+  // resolved) but the worker hasn't claimed the row yet, so its status is
+  // still 'pending' rather than 'processing'. Without 'pending' here, the
+  // spinner would flash off and the button text back on for a few seconds
+  // in exactly that gap.
+  const isGeneratingItinerary =
+    isRequestingItinerary || itinerary?.status === 'pending' || itinerary?.status === 'processing';
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -423,6 +465,18 @@ export function TripViewScreen({
                         </Text>
                         <Text style={styles.clipTime}>{timeAgo(clip.created_at)}</Text>
                         <Text style={styles.clipSource}>{clip.source}</Text>
+                        <Pressable
+                          onPress={() => confirmDeleteClip(clip.id)}
+                          disabled={deletingClipId === clip.id}
+                          hitSlop={8}
+                          style={styles.clipDeleteBtn}
+                        >
+                          {deletingClipId === clip.id ? (
+                            <ActivityIndicator size="small" color={colors.muted} />
+                          ) : (
+                            <TrashIcon color={colors.muted} size={15} />
+                          )}
+                        </Pressable>
                       </View>
                       {clip.status === 'pending' || clip.status === 'processing' ? (
                         <View style={styles.processingRow}>
@@ -490,7 +544,7 @@ export function TripViewScreen({
                 <TimeField label="Asleep by" value={sleepTime} onChange={setSleepTime} />
               </View>
 
-              {!isRequestingItinerary && itinerary?.status === 'done' && itinerary.days && itinerary.days.length > 0 ? (
+              {!isGeneratingItinerary && itinerary?.status === 'done' && itinerary.days && itinerary.days.length > 0 ? (
                 <>
                   <View style={styles.planHeaderRow}>
                     <Text style={styles.planHeaderTitle}>Your full day plan</Text>
@@ -521,16 +575,8 @@ export function TripViewScreen({
                 </>
               ) : (
                 <>
-                  <Pressable
-                    style={styles.planBtn}
-                    onPress={handleRequestItinerary}
-                    disabled={isRequestingItinerary || itinerary?.status === 'processing'}
-                  >
-                    {isRequestingItinerary || itinerary?.status === 'processing' ? (
-                      <BlendingIndicator />
-                    ) : (
-                      <Text style={styles.planBtnText}>✨ Plan my day</Text>
-                    )}
+                  <Pressable style={styles.planBtn} onPress={handleRequestItinerary} disabled={isGeneratingItinerary}>
+                    {isGeneratingItinerary ? <BlendingIndicator /> : <Text style={styles.planBtnText}>✨ Plan my day</Text>}
                   </Pressable>
                   {itinerary?.status === 'error' && (
                     <Text style={styles.error}>{itinerary.error_message ?? "Couldn't build the plan."}</Text>
@@ -667,6 +713,9 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 7,
     borderRadius: 5,
+  },
+  clipDeleteBtn: {
+    marginLeft: spacing.sm,
   },
   clipTitle: {
     fontFamily: fontFamily.bold,

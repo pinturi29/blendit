@@ -7,11 +7,18 @@
  *   Input:  { postUrls: string[], saveFiles?: boolean }
  *   Output (one dataset item per URL): {
  *     postUrl, mediaType, caption, authorUsername, thumbnailUrl,
- *     videoUrl, downloads: [{ type, videoUrl, downloadUrl, ... }], ...
+ *     videoUrl, downloads: [{ index, type, imageUrl, videoUrl, downloadUrl,
+ *     width, height, savedUrl, ... }], ...
  *   }
  *
  * Note this Actor's real input field is `postUrls`, not a generic `urls`
  * key -- we use the exact field name the Actor documents.
+ *
+ * Carousels: the Actor returns one `downloads` entry per slide (confirmed
+ * against the Actor's published docs) -- each slide is either type "image"
+ * or "video", in post order via its own `index`. This is what lets a
+ * carousel/slideshow post get every slide analyzed (via slideImageUrls),
+ * not just a single cover photo.
  */
 import { z } from "zod";
 import { apifyClient } from "./client.js";
@@ -30,7 +37,9 @@ import { logger } from "../utils/logger.js";
  */
 const InstagramDownloadItemSchema = z
   .object({
+    index: z.number().optional(),
     type: z.string().optional(),
+    imageUrl: z.string().optional(),
     videoUrl: z.string().optional(),
     downloadUrl: z.string().optional(),
     savedUrl: z.string().nullable().optional(),
@@ -74,30 +83,58 @@ export async function retrieveInstagramVideo(instagramUrl: string): Promise<Retr
   const parsed = InstagramDatasetItemSchema.safeParse(rawItem);
   const item = parsed.success ? parsed.data : (rawItem as Record<string, unknown>);
 
-  // Instagram posts can be photos/carousels rather than videos. Unlike
-  // TikTok's downloader Actor, this one still returns caption/author/
-  // thumbnail for non-video posts -- it's the same call, just with no
-  // videoUrl/downloads to pull from -- so a photo post degrades to
-  // caption + cover-photo analysis instead of failing outright. That cover
-  // image matters most for carousels/slideshows, where the caption is
-  // often the entire point (e.g. a numbered list of spots).
-  const mediaType = typeof item === "object" && item !== null ? (item as { mediaType?: string }).mediaType : undefined;
-  const isPhotoPost = mediaType != null && mediaType.toLowerCase() !== "video" && !("videoUrl" in (item as object));
-  if (isPhotoPost) {
-    logger.info(`Instagram photo/carousel post detected (mediaType: "${mediaType}") -- analyzing from caption + cover photo only.`);
-  }
-
   // Prefer the well-documented direct field, then the first video-typed
   // download entry, and only fall back to the generic heuristic search if
   // the Actor's output has drifted from its documented shape.
-  const directField = (item as { videoUrl?: string }).videoUrl;
-  const downloads = (item as { downloads?: Array<{ type?: string; videoUrl?: string; downloadUrl?: string }> })
-    .downloads;
+  const directField = (item as { videoUrl?: string | null }).videoUrl;
+  const downloads = (
+    item as {
+      downloads?: Array<{ index?: number; type?: string; imageUrl?: string; videoUrl?: string; downloadUrl?: string }>;
+    }
+  ).downloads;
   const videoDownload = downloads?.find((d) => d.type === "video");
+  const candidateVideoUrl =
+    directField || videoDownload?.videoUrl || videoDownload?.downloadUrl || extractVideoUrl(item, "Instagram dataset item");
 
-  const videoUrl = isPhotoPost
-    ? undefined
-    : directField || videoDownload?.videoUrl || videoDownload?.downloadUrl || extractVideoUrl(item, "Instagram dataset item");
+  // Instagram posts can be photos/carousels rather than videos. Unlike
+  // TikTok's downloader Actor, this one still returns caption/author/
+  // downloads for non-video posts -- it's the same call, just with no
+  // usable videoUrl to pull from -- so a photo post degrades to caption +
+  // every slide image instead of failing outright (see slideImageUrls
+  // below). That matters most for carousels/slideshows, where a numbered
+  // list of spots is often spread one-per-slide rather than in the caption.
+  //
+  // Checking mediaType alone isn't reliable here (a carousel/photo item can
+  // still have a `videoUrl` *key* present but empty/null), and checking
+  // "'videoUrl' in item" isn't either -- what actually matters is whether a
+  // real, non-empty URL was found above. Trusting a falsy-but-present
+  // videoUrl as "this is a video" is exactly what previously sent
+  // slideshow posts into downloadVideo(), which then choked on whatever
+  // non-video response that bogus URL produced.
+  const mediaType = typeof item === "object" && item !== null ? (item as { mediaType?: string }).mediaType : undefined;
+  const isPhotoPost = !candidateVideoUrl || (mediaType != null && mediaType.toLowerCase() !== "video");
+  if (isPhotoPost) {
+    logger.info(`Instagram photo/carousel post detected (mediaType: "${mediaType}") -- analyzing from caption + slide image(s).`);
+  }
+
+  const videoUrl = isPhotoPost ? undefined : candidateVideoUrl;
+
+  // Every image-typed slide, in post order -- undefined (not an empty
+  // array) when there's nothing to show beyond the cover photo, so
+  // processJob.ts's `slideImageUrls ?? [thumbnailUrl]` fallback still
+  // applies for a plain single-image post.
+  const slideImageUrls = isPhotoPost
+    ? (downloads ?? [])
+        .filter((d) => d.type === "image")
+        .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+        .map((d) => d.downloadUrl || d.imageUrl)
+        .filter((u): u is string => !!u)
+    : undefined;
+  if (isPhotoPost && slideImageUrls && slideImageUrls.length > 1) {
+    logger.success(`Found ${slideImageUrls.length} carousel slide(s).`);
+  }
+
+  const thumbnailUrl = (item as { thumbnailUrl?: string }).thumbnailUrl || slideImageUrls?.[0];
 
   return {
     platform: "instagram",
@@ -105,7 +142,8 @@ export async function retrieveInstagramVideo(instagramUrl: string): Promise<Retr
     videoUrl,
     caption: (item as { caption?: string }).caption,
     author: (item as { authorUsername?: string }).authorUsername,
-    thumbnailUrl: (item as { thumbnailUrl?: string }).thumbnailUrl,
+    thumbnailUrl,
+    slideImageUrls: slideImageUrls && slideImageUrls.length > 0 ? slideImageUrls : undefined,
     apifyRunId: run.id,
   };
 }

@@ -4,8 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg';
 
 import { DownIcon, UpIcon } from '../components/ui';
-import { useAuth } from '../context/AuthContext';
-import { ClipWithVotes, getClipDetail, PlaceWithVotes, removeClip, setPlaceVote, setVote } from '../lib/clips';
+import { ClipWithVotes, getClipDetail, PlaceWithVotes, setPlaceVote, setVote } from '../lib/clips';
 import { getErrorMessage } from '../lib/errors';
 import { getProfilesByIds, Profile } from '../lib/profile';
 import { supabase } from '../lib/supabase';
@@ -41,14 +40,6 @@ function BackIcon() {
   return (
     <Svg width={17} height={17} viewBox="0 0 17 17" fill="none" stroke={colors.navy} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
       <Path d="M10.4 3.4 5 8.5l5.4 5.1" />
-    </Svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 17 17" fill="none" stroke={colors.navy} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="M4 5.5h9M7 5.5V3.8a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.7M12.5 5.5l-.6 8a1 1 0 0 1-1 .9H6.1a1 1 0 0 1-1-.9l-.6-8" />
     </Svg>
   );
 }
@@ -109,11 +100,9 @@ function PlaceRow({
 
 export function ClipDetailScreen({ clipId, onBack }: { clipId: string; onBack: () => void }) {
   const insets = useSafeAreaInsets();
-  const { session } = useAuth();
   const [clip, setClip] = useState<ClipDetail | null>(null);
   const [sharer, setSharer] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
@@ -191,29 +180,6 @@ export function ClipDetailScreen({ clipId, onBack }: { clipId: string; onBack: (
     }
   }
 
-  async function handleDelete() {
-    if (!clip) return;
-    setIsDeleting(true);
-    try {
-      await removeClip(clip.id);
-      onBack();
-    } catch (e) {
-      setIsDeleting(false);
-      Alert.alert('Could not delete this clip', getErrorMessage(e));
-    }
-  }
-
-  function confirmDelete() {
-    Alert.alert(
-      'Delete this clip?',
-      "This removes it — and everything extracted from it — for everyone on the trip. This can't be undone.",
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete clip', style: 'destructive', onPress: handleDelete },
-      ]
-    );
-  }
-
   if (isLoading || !clip) {
     return (
       <SafeAreaView style={styles.screen} edges={['bottom']}>
@@ -236,17 +202,6 @@ export function ClipDetailScreen({ clipId, onBack }: { clipId: string; onBack: (
         <Pressable style={[styles.backBtn, { top: insets.top + 8 }]} onPress={onBack} hitSlop={8}>
           <BackIcon />
         </Pressable>
-
-        {clip.shared_by === session?.user.id && (
-          <Pressable
-            style={[styles.deleteBtn, { top: insets.top + 8 }]}
-            onPress={confirmDelete}
-            disabled={isDeleting}
-            hitSlop={8}
-          >
-            {isDeleting ? <ActivityIndicator size="small" color={colors.navy} /> : <TrashIcon />}
-          </Pressable>
-        )}
 
         <Pressable style={styles.playBtn} onPress={handlePlay} hitSlop={8}>
           <PlayIcon />
@@ -355,16 +310,6 @@ const styles = StyleSheet.create({
   backBtn: {
     position: 'absolute',
     left: 14,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.94)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteBtn: {
-    position: 'absolute',
-    right: 14,
     width: 32,
     height: 32,
     borderRadius: 16,

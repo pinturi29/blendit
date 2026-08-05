@@ -45,6 +45,16 @@ export function DownIcon({ color }: { color: string }) {
   );
 }
 
+// Delete affordance for a shared clip -- shown directly on its Blend tab
+// card, not gated behind opening the clip.
+export function TrashIcon({ color = colors.navy, size = 16 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 17 17" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 5.5h9M7 5.5V3.8a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.7M12.5 5.5l-.6 8a1 1 0 0 1-1 .9H6.1a1 1 0 0 1-1-.9l-.6-8" />
+    </Svg>
+  );
+}
+
 // Small pencil-in-a-circle overlay for tappable photos (profile avatar,
 // trip cover) — indicates "tap to change."
 export function EditBadge({ size = 26 }: { size?: number }) {
