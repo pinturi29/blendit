@@ -4,7 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg';
 
 import { DownIcon, UpIcon } from '../components/ui';
-import { ClipWithVotes, getClipDetail, PlaceWithVotes, setPlaceVote, setVote } from '../lib/clips';
+import { ClipWithVotes, formatHandle, getClipDetail, PlaceWithVotes, setPlaceVote, setVote, Voter } from '../lib/clips';
 import { getErrorMessage } from '../lib/errors';
 import { getProfilesByIds, Profile } from '../lib/profile';
 import { supabase } from '../lib/supabase';
@@ -48,11 +48,13 @@ function PlaceRow({
   place,
   index,
   partySize,
+  voterLabel,
   onVote,
 }: {
   place: PlaceWithVotes;
   index: number;
   partySize: number;
+  voterLabel: (voter: Voter) => string;
   onVote: (vote: 'up' | 'down') => void;
 }) {
   const subtitle = place.lat != null && place.lng != null
@@ -94,6 +96,17 @@ function PlaceRow({
           <DownIcon color={colors.muted} />
         </Pressable>
       </View>
+      {place.voters.length > 0 && (
+        <View style={styles.voters}>
+          {place.voters.map((v) => (
+            <View key={v.key} style={[styles.voterChip, v.vote === 'down' && styles.voterChipDown]}>
+              <Text style={styles.voterText} numberOfLines={1}>
+                {v.reaction ?? (v.vote === 'up' ? '↑' : '↓')} {voterLabel(v)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -102,6 +115,8 @@ export function ClipDetailScreen({ clipId, onBack }: { clipId: string; onBack: (
   const insets = useSafeAreaInsets();
   const [clip, setClip] = useState<ClipDetail | null>(null);
   const [sharer, setSharer] = useState<Profile | null>(null);
+  const [voterProfiles, setVoterProfiles] = useState<Record<string, Profile>>({});
+  const [myId, setMyId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,9 +125,15 @@ export function ClipDetailScreen({ clipId, onBack }: { clipId: string; onBack: (
       setError(null);
       const detail = await getClipDetail(clipId);
       setClip(detail);
+      const voterIds = detail.places.flatMap((p) => p.voters.map((v) => v.userId)).filter((id): id is string => id != null);
       const empty: Record<string, Profile> = {};
-      const profiles = await getProfilesByIds([detail.shared_by]).catch(() => empty);
+      const [profiles, { data: auth }] = await Promise.all([
+        getProfilesByIds([...new Set([detail.shared_by, ...voterIds])]).catch(() => empty),
+        supabase.auth.getUser(),
+      ]);
       setSharer(profiles[detail.shared_by] ?? null);
+      setVoterProfiles(profiles);
+      setMyId(auth.user?.id ?? null);
     } catch (e) {
       setError(getErrorMessage(e));
     }
@@ -144,6 +165,12 @@ export function ClipDetailScreen({ clipId, onBack }: { clipId: string; onBack: (
         () => fetchAll()
       )
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clip_place_votes' }, () => fetchAll())
+      // Tapbacks on this clip's link in the trip's linked group chat.
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_reactions', filter: `clip_id=eq.${clipId}` },
+        () => fetchAll()
+      )
       .subscribe();
 
     return () => {
@@ -178,6 +205,16 @@ export function ClipDetailScreen({ clipId, onBack }: { clipId: string; onBack: (
     } catch (e) {
       setError(getErrorMessage(e));
     }
+  }
+
+  // Your own vote reads "You"; anyone with a Blendit account shows their
+  // name; chat-only friends show the number (or email) they texted from.
+  function voterLabel(voter: Voter): string {
+    if (voter.userId && voter.userId === myId) return 'You';
+    const name = voter.userId ? voterProfiles[voter.userId]?.full_name : null;
+    if (name) return name;
+    if (voter.handle && voter.handle !== 'me') return formatHandle(voter.handle);
+    return 'Someone';
   }
 
   if (isLoading || !clip) {
@@ -254,6 +291,7 @@ export function ClipDetailScreen({ clipId, onBack }: { clipId: string; onBack: (
                     place={place}
                     index={i}
                     partySize={clip.partySize}
+                    voterLabel={voterLabel}
                     onVote={(vote) => handlePlaceVote(place, vote)}
                   />
                 ))}
@@ -455,6 +493,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.line,
     borderWidth: 1,
     borderColor: colors.chip,
+  },
+  voters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  voterChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radii.full,
+    backgroundColor: colors.lineSoft,
+    maxWidth: '100%',
+  },
+  voterChipDown: {
+    opacity: 0.6,
+  },
+  voterText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.text,
   },
   plcTally: {
     fontFamily: fontFamily.bold,

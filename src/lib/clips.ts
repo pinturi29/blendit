@@ -57,7 +57,109 @@ export type PlaceWithVotes = ClipPlace & {
   myVote: 'up' | 'down' | null;
   upCount: number;
   downCount: number;
+  voters: Voter[];
 };
+
+// A tapback on a clip's link in the trip's linked iMessage group chat
+// (written by the worker's iMessage bridge -- see migration 0003).
+export type ChatVote = {
+  memberId: string;
+  userId: string | null;
+  // Phone number or email as Messages reports it; 'me' is the trip owner's
+  // own Mac account (always has userId set).
+  handle: string;
+  kind: string;
+  emoji: string | null;
+  value: -1 | 0 | 1;
+};
+
+// One person's vote, from either the app or the group chat. Someone who
+// voted both ways counts once, with their app vote winning -- the same rule
+// the place_scores ranking uses, so the counts here always match it.
+export type Voter = {
+  key: string;
+  userId: string | null;
+  handle: string | null;
+  vote: 'up' | 'down';
+  via: 'app' | 'chat';
+  reaction: string | null;
+};
+
+const TAPBACK_EMOJI: Record<string, string> = {
+  love: '❤️',
+  like: '👍',
+  dislike: '👎',
+  emphasize: '‼️',
+};
+
+function chatVoteReaction(v: ChatVote): string | null {
+  return v.emoji ?? TAPBACK_EMOJI[v.kind] ?? null;
+}
+
+// "+15551234567" -> "(555) 123-4567"; anything else (international numbers,
+// emails) is shown as-is.
+export function formatHandle(handle: string): string {
+  const us = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(handle);
+  return us ? `(${us[1]}) ${us[2]}-${us[3]}` : handle;
+}
+
+function mergeVotes(appVotes: Array<{ user_id: string; vote: 'up' | 'down' }>, chatVotes: ChatVote[]) {
+  const voters: Voter[] = appVotes.map((v) => ({
+    key: `u:${v.user_id}`,
+    userId: v.user_id,
+    handle: null,
+    vote: v.vote,
+    via: 'app' as const,
+    reaction: null,
+  }));
+  const seen = new Set(voters.map((v) => v.key));
+  for (const c of chatVotes) {
+    if (c.value === 0) continue;
+    const key = c.userId ? `u:${c.userId}` : `m:${c.memberId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    voters.push({
+      key,
+      userId: c.userId,
+      handle: c.handle,
+      vote: c.value > 0 ? 'up' : 'down',
+      via: 'chat',
+      reaction: chatVoteReaction(c),
+    });
+  }
+  return {
+    voters,
+    upCount: voters.filter((v) => v.vote === 'up').length,
+    downCount: voters.filter((v) => v.vote === 'down').length,
+  };
+}
+
+// Chat tapbacks for these clips, keyed by clip id. Empty for trips with no
+// linked group chat.
+async function fetchChatVotes(clipIds: string[]): Promise<Map<string, ChatVote[]>> {
+  const byClip = new Map<string, ChatVote[]>();
+  if (clipIds.length === 0) return byClip;
+  const { data, error } = await supabase
+    .from('chat_reactions')
+    .select('clip_id, kind, emoji, value, chat_members(id, handle, user_id)')
+    .in('clip_id', clipIds);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    const member = row.chat_members as unknown as { id: string; handle: string; user_id: string | null } | null;
+    if (!member) continue;
+    const list = byClip.get(row.clip_id) ?? [];
+    list.push({
+      memberId: member.id,
+      userId: member.user_id,
+      handle: member.handle,
+      kind: row.kind,
+      emoji: row.emoji,
+      value: row.value as ChatVote['value'],
+    });
+    byClip.set(row.clip_id, list);
+  }
+  return byClip;
+}
 
 const INSTAGRAM_HOSTNAMES = new Set(['instagram.com', 'www.instagram.com', 'm.instagram.com']);
 const TIKTOK_HOSTNAMES = new Set([
@@ -101,6 +203,7 @@ export type ClipWithVotes = TripClip & {
   myVote: 'up' | 'down' | null;
   upCount: number;
   downCount: number;
+  voters: Voter[];
 };
 
 async function getCurrentUser() {
@@ -121,6 +224,7 @@ export async function listClipsWithVotes(tripId: string): Promise<ClipWithVotes[
 
   if (error) throw error;
 
+  const chatVotes = await fetchChatVotes((data ?? []).map((row) => row.id as string));
   return (data ?? []).map((row) => {
     const { trip_clip_votes: votes, ...clip } = row;
     const mine = (votes as ClipVote[]).find((v) => v.user_id === user.id) ?? null;
@@ -128,21 +232,25 @@ export async function listClipsWithVotes(tripId: string): Promise<ClipWithVotes[
       ...(clip as TripClip),
       votes: votes as ClipVote[],
       myVote: mine?.vote ?? null,
-      upCount: (votes as ClipVote[]).filter((v) => v.vote === 'up').length,
-      downCount: (votes as ClipVote[]).filter((v) => v.vote === 'down').length,
+      ...mergeVotes(votes as ClipVote[], chatVotes.get(row.id as string) ?? []),
     };
   });
 }
 
-function withPlaceVotes(place: ClipPlace & { clip_place_votes: ClipPlaceVote[] }, userId: string): PlaceWithVotes {
+// A tapback on a clip in the group chat counts as that person's vote on
+// every place in the clip, unless they voted on the place in the app.
+function withPlaceVotes(
+  place: ClipPlace & { clip_place_votes: ClipPlaceVote[] },
+  userId: string,
+  chatVotes: ChatVote[] = []
+): PlaceWithVotes {
   const { clip_place_votes: votes, ...rest } = place;
   const mine = votes.find((v) => v.user_id === userId) ?? null;
   return {
     ...rest,
     votes,
     myVote: mine?.vote ?? null,
-    upCount: votes.filter((v) => v.vote === 'up').length,
-    downCount: votes.filter((v) => v.vote === 'down').length,
+    ...mergeVotes(votes, chatVotes),
   };
 }
 
@@ -164,15 +272,15 @@ export async function getClipDetail(
 
   const { trip_clip_votes: votes, clip_places: places, trips: trip, ...clip } = data;
   const mine = (votes as ClipVote[]).find((v) => v.user_id === user.id) ?? null;
+  const chatVotes = (await fetchChatVotes([clipId])).get(clipId) ?? [];
   return {
     ...(clip as TripClip),
     votes: votes as ClipVote[],
     myVote: mine?.vote ?? null,
-    upCount: (votes as ClipVote[]).filter((v) => v.vote === 'up').length,
-    downCount: (votes as ClipVote[]).filter((v) => v.vote === 'down').length,
+    ...mergeVotes(votes as ClipVote[], chatVotes),
     partySize: (trip as { party_size: number } | null)?.party_size ?? 1,
     places: (places as Array<ClipPlace & { clip_place_votes: ClipPlaceVote[] }>)
-      .map((p) => withPlaceVotes(p, user.id))
+      .map((p) => withPlaceVotes(p, user.id, chatVotes))
       .sort((a, b) => a.rank - b.rank),
   };
 }
@@ -188,10 +296,11 @@ export async function listTripPlaces(tripId: string): Promise<Array<PlaceWithVot
 
   if (error) throw error;
 
+  const chatVotes = await fetchChatVotes([...new Set((data ?? []).map((row) => row.trip_clips.id as string))]);
   return (data ?? []).map((row) => {
     const { trip_clips: parentClip, ...place } = row;
     return {
-      ...withPlaceVotes(place, user.id),
+      ...withPlaceVotes(place, user.id, chatVotes.get(parentClip.id as string) ?? []),
       clipId: parentClip.id as string,
     };
   });
